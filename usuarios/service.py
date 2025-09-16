@@ -2,8 +2,8 @@ import bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete
-from usuarios.models.models import *
-from usuarios.schema import *
+from models.models import *
+from schema import *
 from fastapi import HTTPException
 
 

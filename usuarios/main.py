@@ -4,16 +4,15 @@ from pydantic import BaseModel
 from jose import jwt
 from datetime import datetime, timedelta
 from typing import Dict
-from usuarios.DTO.dto import LoginRequest  # Asegúrate de que DTO/model.py esté en el mismo directorio o ajusta la ruta
+from DTO.dto import LoginRequest  # Asegúrate de que DTO/model.py esté en el mismo directorio o ajusta la ruta
 
-from usuarios.schema import *
-from usuarios.service import *
-from usuarios.connection.database import *
+from schema import *
+from service import *
+from connection.database import *
 # from dependencies.dependencies import get_current_user
 from sqlalchemy.orm import Session
 from fastapi.security import HTTPBearer
 
-from usuarios.schema import UserCreate, UserSchema
 
 
 
