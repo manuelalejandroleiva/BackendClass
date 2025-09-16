@@ -1,9 +1,9 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker, declarative_base
+from database.database import Base
 
 
-Base = declarative_base()
 
 
 # Licencia sanitaria
@@ -13,6 +13,7 @@ class Licencia(Base):
     __tablename__ = "Licencia"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True) 
+    buisnesses = relationship("Buisness", back_populates="licencia")
     
 
 
@@ -25,7 +26,7 @@ class Buisness(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True) 
     capital_money=Column(Integer,index=True)
-    licencia_id = Column(Integer, ForeignKey("licencia.id"))  # clave foránea
-    licencia = relationship("Licencia", back_populates="licence")  # muchos a uno
+    licencia_id = Column(Integer, ForeignKey("Licencia.id"))  # clave foránea
+    licencia = relationship("Licencia", back_populates="buisnesses")
     permisos=Column(String, index=True)
     categoria=Column(Integer, index=True)
