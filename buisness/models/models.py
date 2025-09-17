@@ -15,14 +15,8 @@ class Licencia(Base):
     name = Column(String, unique=True, index=True) 
     buisnesses = relationship("Buisness", back_populates="licencia")
     
-
-
-
-
-  
 class Buisness(Base):
     __tablename__ = "Buisness"
-
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True) 
     capital_money=Column(Integer,index=True)
@@ -30,3 +24,6 @@ class Buisness(Base):
     licencia = relationship("Licencia", back_populates="buisnesses")
     permisos=Column(String, index=True)
     categoria=Column(Integer, index=True)
+    address=Column(String, index=True)
+    phone=Column(String, index=True)
+    email=Column(String, unique=True, index=True)       
