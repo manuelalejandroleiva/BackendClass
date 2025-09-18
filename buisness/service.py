@@ -26,7 +26,7 @@ async def create_licencia_service(db: AsyncSession, licencia: LicenciaCreate):
     if existing_licencia:
         raise  HTTPException(
             status_code=400,
-            detail="Ya existe un negocio registrado con ese correo electrónico o con ese nombre ."
+            detail="Ya existe una licencia con ese nombre."
         )
     
     new_licencia = Licencia(**licencia.dict())
