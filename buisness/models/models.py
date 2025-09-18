@@ -19,11 +19,12 @@ class Buisness(Base):
     __tablename__ = "Buisness"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True) 
-    capital_money=Column(Integer,index=True)
+    capital_money=Column(Integer,index=True,nullable=True)
     licencia_id = Column(Integer, ForeignKey("Licencia.id"))  # clave foránea
     licencia = relationship("Licencia", back_populates="buisnesses")
     permisos=Column(String, index=True)
     categoria=Column(Integer, index=True)
     address=Column(String, index=True)
-    phone=Column(String, index=True)
-    email=Column(String, unique=True, index=True)       
+    phone=Column(String, index=True,nullable=True)
+    email=Column(String, unique=True, index=True)
+    image=Column(String, index=True,nullable=True)       
