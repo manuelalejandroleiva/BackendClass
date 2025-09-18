@@ -27,3 +27,4 @@ class User(Base):
     role = relationship("Role", back_populates="users")  # muchos a uno
     is_active = Column(Integer, default=1)  # 1 for active, 0 for inactive
     is_verified = Column(Integer, default=0)  # 0 for not verified, 1 for verified
+    image=Column(String, index=True)
