@@ -27,4 +27,27 @@ class Buisness(Base):
     address=Column(String, index=True)
     phone=Column(String, index=True,nullable=True)
     email=Column(String, unique=True, index=True)
-    image=Column(String, index=True,nullable=True)       
+    image=Column(String, index=True,nullable=True)
+
+
+
+class Tables(Base):
+    __tablename__ = "Tables"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True) 
+    capacity=Column(Integer,index=True)
+    buisness_id = Column(Integer, ForeignKey("Buisness.id"))  # clave foránea
+    buisness = relationship("Buisness")
+    status=Column(String,index=True,nullable=True)  # libre, ocupada, reservada
+    location=Column(String,index=True,nullable=True)  # interior, exterior, barra   
+    
+        
+
+class Product(Base):
+    __tablename__ = "Product"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True) 
+    price=Column(Integer,index=True)
+    stock=Column(Integer,index=True)
+    buisness_id = Column(Integer, ForeignKey("Buisness.id"))  # clave foránea
+    buisness = relationship("Buisness")   
