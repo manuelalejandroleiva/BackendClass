@@ -54,18 +54,30 @@ async def get_buisness_by_id_service(db: AsyncSession, buisness_id: int):
     if not buisness:
         raise HTTPException(status_code=404, detail="Negocio no encontrado")
     return buisness
+
 #Actualizar un negocio
-async def update_buisness_service(db: AsyncSession, buisness_id: int, buisness_update: BuisnessCreate):
-    result = await db.execute(select(Buisness).where(Buisness.id == buisness_id))
-    buisness = result.scalars().first()
-    if not buisness:
-        raise HTTPException(status_code=404, detail="Negocio no encontrado")
-    for key, value in buisness_update.dict().items():
-        setattr(buisness, key, value)
-    db.add(buisness)
+
+async def update_buisness_service(
+    db: AsyncSession, 
+    buisness_id: int, 
+    buisness_update: BuisnessCreate
+):
+    # 1️⃣ Buscar el negocio por ID
+    result = await db.get(Buisness, buisness_id)
+    if not result:
+        raise HTTPException(status_code=404, detail="Buisness not found")
+
+    # 2️⃣ Actualizar solo los campos que vienen en el DTO
+    update_data = buisness_update.dict(exclude_unset=True)
+    for key, value in update_data.items():
+        setattr(result, key, value)
+
+    # 3️⃣ Guardar cambios en la base de datos
+    db.add(result)
     await db.commit()
-    await db.refresh(buisness)
-    return buisness
+    await db.refresh(result)
+
+    return result
 #Eliminar un negocio
 async def delete_buisness_service(db: AsyncSession, buisness_id: int):
     result = await db.execute(select(Buisness).where(Buisness.id == buisness_id))

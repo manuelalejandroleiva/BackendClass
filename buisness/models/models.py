@@ -18,20 +18,33 @@ class Licencia(Base):
     buisnesses = relationship("Buisness", back_populates="licencia")
 
 
+
+class Category(Base):
+    __tablename__ = "category"
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, index=True)
+    buisnesses = relationship("Buisness", back_populates="category")  # ✅ plural y coincide con Buisness
+
+        
+
+
 class Buisness(Base):
-    __tablename__ = "buisness"   # 👈 en minúsculas también
+    __tablename__ = "buisness"
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     capital_money = Column(Integer, index=True)
 
-    licencia_id = Column(Integer, ForeignKey("licencia.id"))  # 👈 apunta a tabla en minúscula
+    licencia_id = Column(Integer, ForeignKey("licencia.id"))
     licencia = relationship("Licencia", back_populates="buisnesses")
 
     permisos = Column(String, index=True)
-    categoria = Column(Integer)
+    categoria = Column(Integer, ForeignKey("category.id"))
+    category = relationship("Category", back_populates="buisnesses")  # ✅ coincide con Category.buisnesses
+
     email = Column(String, unique=True, index=True)
     phone = Column(String, index=True)
     address = Column(String, index=True)
+
 
 
 

@@ -4,17 +4,16 @@ from typing import Optional
 
 
 class BuisnessBase(BaseModel):
-    
-    name: str 
-    capital_money:int
-    licencia_id : int  # clave foránea
-    
-    permisos:str
-    categoria:int
-    address:str
-    phone:str
-    email:str    
-                
+    name: Optional[str] = None
+    capital_money: Optional[int] = None
+    licencia_id: Optional[int] = None  # clave foránea
+    permisos: Optional[str] = None
+    categoria: Optional[int] = None
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    email: Optional[str] = None
+    class Config:
+        orm_mode = True
 
 class BuisnessCreate(BuisnessBase):
     pass
