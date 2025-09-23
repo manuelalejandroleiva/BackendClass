@@ -78,6 +78,7 @@ async def update_buisness_service(
     await db.refresh(result)
 
     return result
+
 #Eliminar un negocio
 async def delete_buisness_service(db: AsyncSession, buisness_id: int):
     result = await db.execute(select(Buisness).where(Buisness.id == buisness_id))
@@ -87,4 +88,12 @@ async def delete_buisness_service(db: AsyncSession, buisness_id: int):
     await db.delete(buisness)
     await db.commit()
     return {"detail": "Negocio eliminado correctamente"}        
-    
+#Eliminar una licencia
+async def delete_licencia_service(db: AsyncSession, licencia_id: int):
+    result = await db.execute(select(Licencia).where(Licencia.id == licencia_id))
+    licencia = result.scalars().first()
+    if not licencia:
+        raise HTTPException(status_code=404, detail="Licencia no encontrada")
+    await db.delete(licencia)
+    await db.commit()
+    return {"detail": "Licencia eliminada correctamente"}    
