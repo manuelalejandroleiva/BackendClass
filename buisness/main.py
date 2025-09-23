@@ -8,7 +8,11 @@ from typing import Dict
 
 from fastapi import Depends, HTTPException
 
-app = FastAPI()
+app = FastAPI(
+    title="My Buisness App",   # 👈 Aquí cambias el nombre
+    description="API para gestionar negocios, licencias y usuarios",
+    version="1.0.0"
+)
 app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
