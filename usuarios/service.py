@@ -2,8 +2,9 @@ import bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from sqlalchemy import delete
-from models.models import *
-from schema import *
+from common.rabbitmq import RabbitMQPublisher
+from .models.models import *
+from .schema import *
 from fastapi import HTTPException
 
 
@@ -23,8 +24,15 @@ async def create_user_service(db: AsyncSession, user: UserCreate):
 
     # 🧱 Crear el nuevo usuario
     new_user_data = user.dict()
+    publisher = RabbitMQPublisher()
     new_user_data["password"] = hashed_pw
     new_user = User(**new_user_data)
+    await publisher.publish(
+        exchange_name="user_exchange",
+        routing_key="user.created",
+        event="USER_CREATED",
+        data={"email": user.email, "message": "Usuario creado correctamente"}
+)
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)

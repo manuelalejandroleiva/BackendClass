@@ -1,9 +1,28 @@
 from sqlalchemy.ext.asyncio import AsyncSession
+
+from common.rabbitmq import RabbitMQConsumer
 from schema import BuisnessCreate,LicenciaCreate  
 from models.models import Buisness, Licencia
 from sqlalchemy.future import select
 from fastapi import HTTPException
+
+
+
+
+
 #Crear un nuevo negocio
+
+consumer = RabbitMQConsumer()
+
+
+async def handle_user_created(event_data: dict):
+    print(f"📩 Notificación recibida: {event_data}")
+    # Aquí puedes enviar un correo, guardar en DB, etc.
+
+
+
+
+
 async def create_buisness_service(db: AsyncSession, buisness: BuisnessCreate):
     existing_email_name = await db.scalar(select(Buisness.id).where
                                      ((Buisness.email == buisness.email) or (Buisness.name == buisness.name)))
@@ -15,6 +34,7 @@ async def create_buisness_service(db: AsyncSession, buisness: BuisnessCreate):
 
     # 🧱 Crear el nuevo negocio
     new_buisness = Buisness(**buisness.dict())
+    await consumer.consume("user_events", handle_user_created)
     db.add(new_buisness)
     await db.commit()
     await db.refresh(new_buisness)
@@ -23,6 +43,7 @@ async def create_buisness_service(db: AsyncSession, buisness: BuisnessCreate):
 async def create_licencia_service(db: AsyncSession, licencia: LicenciaCreate):
     existing_licencia = await db.scalar(select(Licencia.id).where
                                      ((Licencia.name == licencia.name) ))
+                    
     if existing_licencia:
         raise  HTTPException(
             status_code=400,
