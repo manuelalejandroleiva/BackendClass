@@ -1,8 +1,8 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from common.rabbitmq import RabbitMQConsumer
-from schema import BuisnessCreate,LicenciaCreate  
-from models.models import Buisness, Licencia
+from .schema import BuisnessCreate,LicenciaCreate  
+from .models.models import Buisness, Licencia
 from sqlalchemy.future import select
 from fastapi import HTTPException
 
@@ -15,9 +15,9 @@ from fastapi import HTTPException
 consumer = RabbitMQConsumer()
 
 
-async def handle_user_created(event_data: dict):
-    print(f"📩 Notificación recibida: {event_data}")
-    # Aquí puedes enviar un correo, guardar en DB, etc.
+# async def handle_user_created(event_data: dict):
+#     print(f"📩 Notificación recibida: {event_data}")
+#     # Aquí puedes enviar un correo, guardar en DB, etc.
 
 
 
@@ -34,7 +34,7 @@ async def create_buisness_service(db: AsyncSession, buisness: BuisnessCreate):
 
     # 🧱 Crear el nuevo negocio
     new_buisness = Buisness(**buisness.dict())
-    await consumer.consume("user_events", handle_user_created)
+    # await consumer.consume("user_events", handle_user_created)
     db.add(new_buisness)
     await db.commit()
     await db.refresh(new_buisness)
