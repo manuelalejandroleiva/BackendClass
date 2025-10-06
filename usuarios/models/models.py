@@ -1,6 +1,6 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
-from connection.database import Base
+from usuarios.connection.database import Base
 
 
 

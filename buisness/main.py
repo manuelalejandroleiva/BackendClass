@@ -1,9 +1,10 @@
+import asyncio
 import uvicorn
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
-from connection.database import get_db, engine, Base
-from schema import BuisnessCreate,LicenciaCreate
-from service import create_buisness_service,create_licencia_service,get_licencias_service,get_buisnesses_service,get_buisness_by_id_service,update_buisness_service,delete_buisness_service,delete_licencia_service
+from .connection.database import get_db, engine, Base
+from .schema import BuisnessCreate,LicenciaCreate
+from .service import create_buisness_service,create_licencia_service,get_licencias_service,get_buisnesses_service,get_buisness_by_id_service,update_buisness_service,delete_buisness_service,delete_licencia_service
 from typing import Dict     
 
 from fastapi import Depends, HTTPException
@@ -15,8 +16,11 @@ app = FastAPI(
 )
 app.on_event("startup")
 async def startup():
+    # Crear las tablas en la base de datos al iniciar la aplicación
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    # 🔹 Arrancar el consumer en segundo plano
+   
 
 @app.post("/buisness_create")
 async def create_buisness(buisness: BuisnessCreate, db: AsyncSession = Depends(get_db)):
