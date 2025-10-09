@@ -1,6 +1,6 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from common.rabbitmq import RabbitMQConsumer
+
 from .schema import BuisnessCreate,LicenciaCreate  
 from .models.models import Buisness, Licencia
 from sqlalchemy.future import select
@@ -12,7 +12,7 @@ from fastapi import HTTPException
 
 #Crear un nuevo negocio
 
-consumer = RabbitMQConsumer()
+
 
 
 # async def handle_user_created(event_data: dict):
@@ -34,7 +34,7 @@ async def create_buisness_service(db: AsyncSession, buisness: BuisnessCreate):
 
     # 🧱 Crear el nuevo negocio
     new_buisness = Buisness(**buisness.dict())
-    # await consumer.consume("user_events", handle_user_created)
+    # await consumer.consume("user_events",)
     db.add(new_buisness)
     await db.commit()
     await db.refresh(new_buisness)
@@ -43,7 +43,6 @@ async def create_buisness_service(db: AsyncSession, buisness: BuisnessCreate):
 async def create_licencia_service(db: AsyncSession, licencia: LicenciaCreate):
     existing_licencia = await db.scalar(select(Licencia.id).where
                                      ((Licencia.name == licencia.name) ))
-                    
     if existing_licencia:
         raise  HTTPException(
             status_code=400,
