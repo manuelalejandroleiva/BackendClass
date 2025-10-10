@@ -3,10 +3,9 @@ import uvicorn
 from fastapi import FastAPI
 from sqlalchemy.ext.asyncio import AsyncSession
 from .connection.database import get_db, engine, Base
-from .schema import BuisnessCreate,LicenciaCreate
+from .schema import BuisnessCreate,LicenciaCreate,BuisnessUpdate
 from .service import create_buisness_service,create_licencia_service,get_licencias_service,get_buisnesses_service,get_buisness_by_id_service,update_buisness_service,delete_buisness_service,delete_licencia_service
-from typing import Dict    
-from common.rabbitmq import RabbitMQConsumer 
+from typing import Dict     
 
 from fastapi import Depends, HTTPException
 
@@ -15,16 +14,12 @@ app = FastAPI(
     description="API para gestionar negocios, licencias y usuarios",
     version="1.0.0"
 )
-
-consumer = RabbitMQConsumer()
 app.on_event("startup")
 async def startup():
     # Crear las tablas en la base de datos al iniciar la aplicación
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
     # 🔹 Arrancar el consumer en segundo plano
-    asyncio.create_task(consumer.consume("user_events"))
-    print("🚀 Escuchando eventos de usuarios")
    
 
 @app.post("/buisness_create")
@@ -71,10 +66,10 @@ async def get_all_buisnesses(skip: int = 0, limit: int = 10, db: AsyncSession = 
     
 
 
-@app.put("/buisness/{buisness_id}", response_model=None)
+@app.patch("/buisness/{buisness_id}", response_model=None)
 async def update_buisness(
     buisness_id: int,
-    buisness_update: BuisnessCreate,
+    buisness_update: BuisnessUpdate,
     db: AsyncSession = Depends(get_db)
 ):
     """

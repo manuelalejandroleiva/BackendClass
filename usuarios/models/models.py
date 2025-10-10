@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, ForeignKey
+from sqlalchemy import Boolean, Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from usuarios.connection.database import Base
 
@@ -25,6 +25,6 @@ class User(Base):
     password = Column(String, index=True)
     role_id = Column(Integer, ForeignKey("roles.id"))  # clave foránea
     role = relationship("Role", back_populates="users")  # muchos a uno
-    is_active = Column(Integer, default=1)  # 1 for active, 0 for inactive
-    is_verified = Column(Integer, default=0)  # 0 for not verified, 1 for verified
+    is_active = Column(Boolean, default=True, nullable=False)
+    is_verified = Column(Boolean, default=False, nullable=False)
     image=Column(String, index=True)
