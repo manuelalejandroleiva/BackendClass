@@ -21,8 +21,9 @@ class   UserSchema(BaseModel):
     address: Optional[str] = None
     phone: Optional[str] = None
     role_id: Optional[int] = None
-    is_active: Optional[int] = None
-    is_verified: Optional[int] = None
+    is_active: Optional[bool] = True
+    is_verified: Optional[bool] = False
+   
 
     class Config:
         orm_mode = True

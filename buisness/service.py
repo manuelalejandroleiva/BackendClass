@@ -1,7 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession
 
 
-from .schema import BuisnessCreate,LicenciaCreate  
+from .schema import BuisnessCreate,LicenciaCreate,BuisnessUpdate  
 from .models.models import Buisness, Licencia
 from sqlalchemy.future import select
 from fastapi import HTTPException
@@ -80,24 +80,23 @@ async def get_buisness_by_id_service(db: AsyncSession, buisness_id: int):
 async def update_buisness_service(
     db: AsyncSession, 
     buisness_id: int, 
-    buisness_update: BuisnessCreate
+    buisness_update: BuisnessUpdate
 ):
-    # 1️⃣ Buscar el negocio por ID
     result = await db.get(Buisness, buisness_id)
     if not result:
         raise HTTPException(status_code=404, detail="Buisness not found")
 
-    # 2️⃣ Actualizar solo los campos que vienen en el DTO
+    # 🔥 Solo los campos realmente enviados
     update_data = buisness_update.dict(exclude_unset=True)
+
     for key, value in update_data.items():
         setattr(result, key, value)
 
-    # 3️⃣ Guardar cambios en la base de datos
     db.add(result)
     await db.commit()
     await db.refresh(result)
-
     return result
+
 
 #Eliminar un negocio
 async def delete_buisness_service(db: AsyncSession, buisness_id: int):

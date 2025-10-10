@@ -13,29 +13,31 @@ from fastapi import HTTPException
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
-async def create_user_service(db: AsyncSession, user: UserCreate):
+async def create_user_service(db: AsyncSession, user: UserSchema):
+    # 🔒 Hashear la contraseña
     hashed_pw = hash_password(user.password)
+
+    # 🔍 Verificar si el correo ya existe
     existing_email = await db.scalar(select(User.id).where(User.email == user.email))
     if existing_email:
-        raise  HTTPException(
+        raise HTTPException(
             status_code=400,
             detail="Ya existe un usuario registrado con ese correo electrónico."
         )
 
-    # 🧱 Crear el nuevo usuario
-    new_user_data = user.dict()
-    publisher = RabbitMQPublisher()
+    # 🧱 Crear el nuevo usuario con valores booleanos correctos
+    new_user_data = user.dict(exclude={"id"})
     new_user_data["password"] = hashed_pw
+    new_user_data["is_active"] = True if user.is_active is None else user.is_active
+    new_user_data["is_verified"] = False if user.is_verified is None else user.is_verified
+
     new_user = User(**new_user_data)
-    await publisher.publish(
-        exchange_name="user_exchange",
-        routing_key="user.created",
-        event="USER_CREATED",
-        data={"email": user.email, "message": "Usuario creado correctamente"}
-)
+
+    # 💾 Guardar en la base de datos
     db.add(new_user)
     await db.commit()
     await db.refresh(new_user)
+
     return new_user
 
 async def get_user(db: AsyncSession, user_id: int):

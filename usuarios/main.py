@@ -1,3 +1,4 @@
+import os
 import bcrypt
 from fastapi import FastAPI, HTTPException, Body, Depends, APIRouter
 from pydantic import BaseModel
@@ -25,6 +26,7 @@ app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    
 
 
 # JWT Config
@@ -132,7 +134,7 @@ async def delete_user_route(user_id: int, db: AsyncSession = Depends(get_db)):
 # 👥 Registro (ruta pública)
 
 
-@app.post("/users/")
+@app.post("/users/create/")
 async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
     try:
         return await create_user_service(db, user)
