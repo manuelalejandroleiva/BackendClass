@@ -11,7 +11,9 @@ from jose import jwt
 from fastapi import HTTPException
 import os 
 
+from dotenv import load_dotenv
 
+load_dotenv()
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
