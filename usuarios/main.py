@@ -2,6 +2,7 @@ import os
 import bcrypt
 from fastapi import FastAPI, HTTPException, Body, Depends, APIRouter
 from pydantic import BaseModel
+from dotenv import load_dotenv
 from jose import jwt
 from datetime import datetime, timedelta
 from typing import Dict
@@ -14,7 +15,7 @@ from .connection.database import *
 
 
 
-
+load_dotenv()
 
 
 
@@ -30,44 +31,11 @@ async def startup():
 
 
 # JWT Config
-SECRET_KEY = "my-secret-key"
-REFRESH_SECRET_KEY = "my-refresh-secret"
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 15
-REFRESH_TOKEN_EXPIRE_DAYS = 7
+SECRET_KEY = os.getenv("SECRET_KEY")
+REFRESH_SECRET_KEY = os.getenv("REFRESH_SECRET_KEY")
 
-
-
-# Contraseña real: "123456"
-# Hash generado con: bcrypt.hashpw("123456".encode(), bcrypt.gensalt()).decode()
-
-
-
-
-# Verificar password
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    if isinstance(hashed_password, str):
-        hashed_password = hashed_password.encode()
-    return bcrypt.checkpw(plain_password.encode(), hashed_password)
-
-# Autenticar usuario
-# utils.py o auth.py
-
-async def authenticate_user(db: AsyncSession, email: str, password: str):
-    user = await get_user_by_email(db=db, email=email)  # ← aquí agregas await
-    if not user:
-        return None
-    if not verify_password(password, user.password):
-        return None
-    return user
-
-
-# Crear JWT token
-def create_token(data: Dict, expires_delta: timedelta, secret: str):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + expires_delta
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, secret, algorithm=ALGORITHM)
+ACCESS_TOKEN_EXPIRE_MINUTES = 60*24  # 1 día
+REFRESH_TOKEN_EXPIRE_DAYS = 7   # 7 días 
 
 
 
@@ -95,17 +63,15 @@ async def login(
     return {
         "access_token": access_token,
         "refresh_token": refresh_token,
-        "user": user
+        "user": UserResponse.model_validate(user, from_attributes=True)#Ojo mirar aca para eliminar algo de un DTO
+
     }
 
 
 
 
 
-# 🔐 Router protegido
-# protected_router = APIRouter(
-#     dependencies=[Depends(get_current_user)]
-# )
+
 
 
 # Rutas protegidas
