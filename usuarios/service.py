@@ -1,3 +1,5 @@
+from datetime import datetime, timedelta
+from typing import Dict
 import bcrypt
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
@@ -5,13 +7,57 @@ from sqlalchemy import delete
 from common.rabbitmq import RabbitMQPublisher
 from .models.models import *
 from .schema import *
+from jose import jwt
 from fastapi import HTTPException
-
+import os 
 
 
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
+
+
+
+  
+
+
+
+# Contraseña real: "123456"
+# Hash generado con: bcrypt.hashpw("123456".encode(), bcrypt.gensalt()).decode()
+
+
+ALGORITHM = os.getenv("ALGORITHM", "HS256")
+
+
+
+# Verificar password
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if isinstance(hashed_password, str):
+        hashed_password = hashed_password.encode()
+    return bcrypt.checkpw(plain_password.encode(), hashed_password)
+
+# Autenticar usuario
+# utils.py o auth.py
+
+async def authenticate_user(db: AsyncSession, email: str, password: str):
+    user = await get_user_by_email(db=db, email=email)  # ← aquí agregas await
+    if not user:
+        return None
+    if not verify_password(password, user.password):
+        return None
+    return user
+
+
+# Crear JWT token
+def create_token(data: Dict, expires_delta: timedelta, secret: str):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, secret, algorithm=ALGORITHM)
+
+
+
+
 
 async def create_user_service(db: AsyncSession, user: UserSchema):
     # 🔒 Hashear la contraseña

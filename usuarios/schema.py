@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
 from typing import Optional
 
 class UserBase(BaseModel):
@@ -24,6 +24,21 @@ class   UserSchema(BaseModel):
     is_active: Optional[bool] = True
     is_verified: Optional[bool] = False
    
+
+    class Config:
+        orm_mode = True
+
+
+
+class UserResponse(BaseModel):
+    id: int
+    name: str
+    email: EmailStr
+    phone: Optional[str] = None
+    address: Optional[str] = None
+    role_id: Optional[int] = None
+    is_active: bool
+    is_verified: bool
 
     class Config:
         orm_mode = True

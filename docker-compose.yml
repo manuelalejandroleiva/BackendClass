@@ -1,0 +1,29 @@
+version: "3.9"
+
+services:
+  gateway:
+    build: 
+      context: .
+      dockerfile: gateway/Dockerfile
+    container_name: gateway
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    depends_on:
+      - user_service
+      - buisness_service
+
+  user_service:
+    build:
+      context: ./user_service
+    container_name: user_service
+    ports:
+      - "8001:8001"
+
+  buisness_service:
+    build:
+      context: ./buisness_service
+    container_name: buisness_service
+    ports:
+      - "8002:8002"
