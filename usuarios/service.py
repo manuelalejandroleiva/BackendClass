@@ -1,146 +1,233 @@
-from datetime import datetime, timedelta
-from typing import Dict
-import bcrypt
+import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from sqlalchemy import delete
-from common.rabbitmq import RabbitMQPublisher
-from .models.models import *
-from .schema import *
+from .connection.database import engine
+from .models.models import User
+from common.rabbitmq import message_pattern
+import bcrypt
+from datetime import datetime, timedelta
+from .schema import UserCreate, UserSchema,UserCreateDTO
 from jose import jwt
 from fastapi import HTTPException
 import os 
 
-from dotenv import load_dotenv
 
-load_dotenv()
+
+ALGORITHM = "HS256"
+SECRET_KEY = "supersecretkey"  # ⚠️ cámbialo por tu valor real
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    if isinstance(hashed_password, str):
+        hashed_password = hashed_password.encode()
+    return bcrypt.checkpw(plain_password.encode(), hashed_password)
+
+def create_token(data: dict, expires_delta: timedelta):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + expires_delta
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+async def get_user_by_email(db: AsyncSession, email: str):
+    result = await db.execute(select(User).where(User.email == email))
+    return result.scalar_one_or_none()
+
+@message_pattern("auth.login")
+async def handle_login(payload):
+    async with AsyncSession(engine) as db:
+        try:
+            email = payload.get("email")
+            password = payload.get("password")
+
+            if not email or not password:
+                return {"success": False, "message": "Email y contraseña son requeridos."}
+
+            user = await get_user_by_email(db, email)
+            if not user:
+                return {"success": False, "message": "Usuario no encontrado."}
+
+            if not verify_password(password, user.password):
+                return {"success": False, "message": "Contraseña incorrecta."}
+
+            access_token_expires = timedelta(hours=1)
+            access_token = create_token(
+                {"sub": user.email, "id": user.id},
+                expires_delta=access_token_expires
+            )
+
+            user_data = {
+                k: v for k, v in user.__dict__.items()
+                if k not in ("_sa_instance_state", "password")
+            }
+
+            return {
+                "success": True,
+                "token": access_token,
+                "user": user_data
+            }
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
 
 def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
 
 
-  
+async def get_all(session: AsyncSession, page: int = 1, page_size: int = 10):
+    offset = (page - 1) * page_size
+    result = await session.execute(select(User).offset(offset).limit(page_size))
+    users = result.scalars().all()
+
+    # Contamos total de registros para poder enviar info de paginación
+    total_result = await session.execute(select(User))
+    total = len(total_result.scalars().all())
+
+    return users, total
 
 
+@message_pattern("companies.get_all")
+async def handle_get_all(payload):
+    
+    page = payload.get("page", 1)
+    page_size = payload.get("page_size", 10)
 
-# Contraseña real: "123456"
-# Hash generado con: bcrypt.hashpw("123456".encode(), bcrypt.gensalt()).decode()
+    async with AsyncSession(engine) as session:
+        users, total = await get_all(session, page, page_size)
 
+        data = [
+            {k: v for k, v in u.__dict__.items() if k not in ("_sa_instance_state","password") }
+            for u in users
+        ]
 
-ALGORITHM = os.getenv("ALGORITHM", "HS256")
+        response = {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": (total + page_size - 1) // page_size,
+            "data": data
+        }
 
-
-
-# Verificar password
-def verify_password(plain_password: str, hashed_password: str) -> bool:
-    if isinstance(hashed_password, str):
-        hashed_password = hashed_password.encode()
-    return bcrypt.checkpw(plain_password.encode(), hashed_password)
-
-# Autenticar usuario
-# utils.py o auth.py
-
-async def authenticate_user(db: AsyncSession, email: str, password: str):
-    user = await get_user_by_email(db=db, email=email)  # ← aquí agregas await
-    if not user:
-        return None
-    if not verify_password(password, user.password):
-        return None
-    return user
-
-
-# Crear JWT token
-def create_token(data: Dict, expires_delta: timedelta, secret: str):
-    to_encode = data.copy()
-    expire = datetime.utcnow() + expires_delta
-    to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, secret, algorithm=ALGORITHM)
-
-
-
-
-
-async def create_user_service(db: AsyncSession, user: UserSchema):
-    # 🔒 Hashear la contraseña
-    hashed_pw = hash_password(user.password)
-
-    # 🔍 Verificar si el correo ya existe
-    existing_email = await db.scalar(select(User.id).where(User.email == user.email))
-    if existing_email:
-        raise HTTPException(
-            status_code=400,
-            detail="Ya existe un usuario registrado con ese correo electrónico."
-        )
-
-    # 🧱 Crear el nuevo usuario con valores booleanos correctos
-    new_user_data = user.dict(exclude={"id"})
-    new_user_data["password"] = hashed_pw
-    new_user_data["is_active"] = True if user.is_active is None else user.is_active
-    new_user_data["is_verified"] = False if user.is_verified is None else user.is_verified
-
-    new_user = User(**new_user_data)
-
-    # 💾 Guardar en la base de datos
-    db.add(new_user)
-    await db.commit()
-    await db.refresh(new_user)
-
-    return new_user
-
-async def get_user(db: AsyncSession, user_id: int):
-    result = await db.execute(select(User).where(User.id == user_id))
-
-    return result.scalar_one_or_none()
-
-
-
-async def get_user_by_email(db: AsyncSession, email: str):
-    result = await db.execute(select(User).where(User.email == email))
-    return result.scalar_one_or_none()
-
-async def get_users(db: AsyncSession, skip: int = 0, limit: int = 10):
-    result = await db.execute(select(User).offset(skip).limit(limit))
-
-    return result.scalars().all()
-
-async def delete_user(db: AsyncSession, user_id: int):
-    result = await db.execute(select(User).where(User.id == user_id))
-    user = result.scalar_one_or_none()
-    if user:
-        await db.delete(user)
-        await db.commit()
-        return user
-    else:
-         raise  HTTPException(
-            status_code=400,
-            detail="Usuario no encontrado."
-        )
+       
+        return response
     
 
-async def update_user(db: AsyncSession, user_id: int, user_data: UserSchema):
-    result = await db.execute(select(User).where(User.id == user_id))
-    result_email=await db.execute(select(User).where(User.email==user_data.email))
-    existing_user = result.scalar_one_or_none()
-    existing_email=result_email.scalar_one_or_none()
-    if not existing_user:
-        raise HTTPException(status_code=400, detail="Usuario no encontrado.")
-    if  existing_email:
-        raise HTTPException(status_code=400, detail="El email insertado ya le pertenece a otro usuario")
 
-    # Actualizar campos del usuario con los datos del esquema
-    for field, value in user_data.dict(exclude_unset=True,exclude={"id"}).items():
-        setattr(existing_user, field, value)
 
-    await db.commit()
-    await db.refresh(existing_user)
-    return {
-        'id':existing_user.id,
-        'address':existing_user.address,
-        'phone':existing_user.phone,
-        'name':existing_user.name,
-        'email':existing_user.email,
-        'is_active':existing_user.is_active
-    }
+@message_pattern("users.create")
+async def handle_create_user(payload):
+    async with AsyncSession(engine) as db:
+        try:
+            # ⚡ Payload debe ser dict
+            if isinstance(payload, str):
+                payload = json.loads(payload)
 
-    
+            # Validación con Pydantic
+            user_data = UserCreateDTO(**payload)
+
+            # 🔒 Hashear contraseña
+            hashed_pw = hash_password(user_data.password)
+
+            # 🔍 Verificar si email ya existe
+            existing_email = await db.scalar(select(User.id).where(User.email == user_data.email))
+            if existing_email:
+                return {"success": False, "message": "Ya existe un usuario con ese correo."}
+
+            # 🧱 Crear nuevo usuario
+            new_user_data = user_data.dict(exclude={"id"})
+            new_user_data["password"] = hashed_pw
+            new_user_data["is_active"] = True if user_data.is_active is None else user_data.is_active
+            new_user_data["is_verified"] = False if user_data.is_verified is None else user_data.is_verified
+
+            new_user = User(**new_user_data)
+            db.add(new_user)
+            await db.commit()
+            await db.refresh(new_user)
+
+            # ⚠ Excluir password en la respuesta
+            response = {k: v for k, v in new_user.__dict__.items() if k not in ("_sa_instance_state", "password")}
+
+            return {"success": True, "data": response}
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+
+# ✅ handler RabbitMQ
+@message_pattern("users.get_by_id")
+async def handle_get_by_id(payload):
+    async with AsyncSession(engine) as db:
+        try:
+            user_id = payload.get("id")
+            if user_id is None:
+                return {"success": False, "message": "Falta el ID en el payload."}
+
+            user = await db.get(User, int(user_id))
+            if not user:
+                return {"success": False, "message": "Usuario no encontrado."}
+
+            user_data = {
+                k: v for k, v in user.__dict__.items()
+                if k not in ("_sa_instance_state", "password")
+            }
+
+            return {"success": True, "data": user_data}
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+        
+
+@message_pattern("users.delete")
+async def handle_delete_user(payload):
+    async with AsyncSession(engine) as db:
+        try:
+            user_id = payload.get("id")
+            if user_id is None:
+                return {"success": False, "message": "Falta el ID en el payload."}
+
+            user = await db.get(User, int(user_id))
+            if not user:
+                return {"success": False, "message": "Usuario no encontrado."}
+
+            await db.delete(user)
+            await db.commit()
+
+            return {"success": True, "message": "Usuario eliminado correctamente."}
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+@message_pattern("users.update")
+async def handle_update_user(payload):
+    async with AsyncSession(engine) as db:
+        try:
+            user_id = payload.get("id")
+            if user_id is None:
+                return {"success": False, "message": "Falta el ID en el payload."}
+
+            user = await db.get(User, int(user_id))
+            if not user:
+                return {"success": False, "message": "Usuario no encontrado."}
+
+            # Validación con Pydantic
+            user_data = UserCreateDTO(**payload)
+
+            update_data = user_data.dict(exclude_unset=True, exclude={"id", "password"})
+            for key, value in update_data.items():
+                setattr(user, key, value)
+
+            # Si se proporciona una nueva contraseña, hashearla
+            if user_data.password:
+                user.password = hash_password(user_data.password)
+
+            db.add(user)
+            await db.commit()
+            await db.refresh(user)
+
+            user_response = {k: v for k, v in user.__dict__.items() if k not in ("_sa_instance_state", "password")}
+
+            return {"success": True, "data": user_response}
+
+        except Exception as e:
+            return {"success": False, "message": str(e)}

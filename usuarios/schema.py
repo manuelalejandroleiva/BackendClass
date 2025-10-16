@@ -42,3 +42,20 @@ class UserResponse(BaseModel):
 
     class Config:
         orm_mode = True
+
+
+class UserCreateDTO(BaseModel):
+    name: str
+    email: EmailStr
+    address: Optional[str] = None
+    phone: Optional[str] = None
+    password: str
+    role_id: int
+    is_active: Optional[bool] = True
+    is_verified: Optional[bool] = False
+
+
+class UserResponseOne(BaseModel):
+    success: bool
+    message: Optional[str] = None
+    data: Optional[UserSchema] = None

@@ -1,124 +1,111 @@
-import os
-import bcrypt
-from fastapi import FastAPI, HTTPException, Body, Depends, APIRouter
-from pydantic import BaseModel
-from dotenv import load_dotenv
-from jose import jwt
-from datetime import datetime, timedelta
-from typing import Dict
-from .DTO.dto import LoginRequest  # Asegúrate de que DTO/model.py esté en el mismo directorio o ajusta la ruta
-
-from .schema import *
-from .service import *
-from .connection.database import *
-
-
-
-
-load_dotenv()
-
-
-
+from fastapi import FastAPI, HTTPException
+from usuarios.DTO.dto import LoginRequest
+from common.rabbitmq import MessageBroker
+from .connection.database import engine, Base
+from .service import *  # 👈 esto importa y registra los message_pattern
+from fastapi import Query
+from .schema import UserCreateDTO,UserResponseOne
 
 app = FastAPI()
 
+broker = MessageBroker("amqp://guest:guest@localhost:5672/")
 
-app.on_event("startup")
+@app.on_event("startup")
 async def startup():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+    await broker.connect()
+    await broker.subscribe_patterns()
+    print("✅ Broker conectado y patrones suscritos")
+
+@app.on_event("shutdown")
+async def shutdown():
+    await broker.close()
+    print("🔻 Broker cerrado")
+
+
+
+@app.post("/auth/login")
+async def login_user(credentials: LoginRequest):
+    try:
+        payload = credentials.dict()
+        result = await broker.rpc_request("auth.login", payload)
+
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
 
 
-# JWT Config
-SECRET_KEY = os.getenv("SECRET_KEY")
-REFRESH_SECRET_KEY = os.getenv("REFRESH_SECRET_KEY")
 
-ACCESS_TOKEN_EXPIRE_MINUTES = 60*24  # 1 día
-REFRESH_TOKEN_EXPIRE_DAYS = 7   # 7 días 
+@app.get("/users")
+async def get_users(page: int = Query(1, ge=1), 
+                    page_size: int = Query(10, ge=1, le=100)):
+    """
+    Obtiene usuarios paginados.
+    """
+    try:
+        payload = {"page": page, "page_size": page_size}
+        result = await broker.rpc_request("companies.get_all", payload)
+        print("📦 Respuesta del broker:", result)
+        return result
+    except Exception as e:
+        print("❌ Error en /users:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+    
 
+@app.post("/users")
+async def create_user(user: UserCreateDTO):
+    """
+    Recibe el JSON de usuario, lo envía por RPC al broker y devuelve el resultado.
+    """
+    try:
+        payload = user.dict()  # convierte a dict para el broker
+        result = await broker.rpc_request("users.create", payload)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
 
-
-@app.post("/login")
-async def login(
-    login_data: LoginRequest = Body(...),
-    db: AsyncSession = Depends(get_db)
-):
-    user = await authenticate_user(db, login_data.email, login_data.password)
-    if not user:
-        raise HTTPException(status_code=400, detail="Invalid credentials")
-
-    access_token = create_token(
-        data={"sub": user.email},
-        expires_delta=timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
-        secret=SECRET_KEY
-    )
-
-    refresh_token = create_token(
-        data={"sub": user.email},
-        expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS),
-        secret=REFRESH_SECRET_KEY
-    )
-
-    return {
-        "access_token": access_token,
-        "refresh_token": refresh_token,
-        "user": UserResponse.model_validate(user, from_attributes=True)#Ojo mirar aca para eliminar algo de un DTO
-
-    }
-
-
-
-
-
-
-
-
-# Rutas protegidas
-@app.get("/users/", response_model=list[UserSchema])
-async def read_users(skip: int = 0, limit: int = 10, db: AsyncSession = Depends(get_db)):
-    return await get_users(db, skip, limit)
-
-@app.get("/users/{user_id}", response_model=UserSchema)
-async def read_user(user_id: int, db: AsyncSession = Depends(get_db)):
-    db_user = await get_user(db, user_id)
-    if not db_user:
-        raise HTTPException(status_code=404, detail="User not found")
-    return db_user
+# ✅ endpoint FastAPI
+@app.get("/users/{user_id}", response_model=UserResponseOne)
+async def get_user_by_id(user_id: int):
+    try:
+        payload = {"id": user_id}  # 👈 coincide con el handler
+        result = await broker.rpc_request("users.get_by_id", payload)
+        return result
+    except Exception as e:
+        return {"success": False, "message": str(e)}
+    
 
 @app.delete("/users/{user_id}")
-async def delete_user_route(user_id: int, db: AsyncSession = Depends(get_db)):
+async def delete_user(user_id: int):
+    """
+    Elimina un usuario por ID.
+    """
     try:
-        return await delete_user(db, user_id)
-    except HTTPException as http_exc:
-        raise http_exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(exc)}")
-
-        
-
-# 👥 Registro (ruta pública)
-
-
-@app.post("/users/create/")
-async def create_user(user: UserCreate, db: AsyncSession = Depends(get_db)):
-    try:
-        return await create_user_service(db, user)
-    except HTTPException as http_exc:
-        raise http_exc  # ✅ Correct way to pass along the error
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(exc)}")
+        payload = {"id": user_id}
+        result = await broker.rpc_request("users.delete", payload)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
     
+
 @app.put("/users/{user_id}")
-async def update_users(user: UserSchema, user_id: int, db: AsyncSession = Depends(get_db)):
+async def update_user(user_id: int, user: UserCreateDTO):
+    """
+    Actualiza un usuario por ID.
+    """
     try:
-        return await update_user(db, user_id, user)
-    except HTTPException as http_exc:
-        raise http_exc
-    except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"Error inesperado: {str(exc)}")
-
-
-
-
-# app.include_router(protected_router,prefix="/api")
+        payload = user.dict()
+        payload["id"] = user_id  # incluir ID en el payload
+        result = await broker.rpc_request("users.update", payload)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
