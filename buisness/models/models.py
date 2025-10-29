@@ -1,7 +1,7 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker, declarative_base
-from database.database import Base
+from buisness.database.database import Base
 
 
 
