@@ -6,13 +6,12 @@ from typing import Optional
 class BuisnessBase(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     capital_money: Optional[int] = Field(None, ge=0)
-    licencia_id: Optional[int] = None
-    permisos: Optional[str] = None
     categoria: Optional[int] = None
     address: Optional[str] = Field(None, min_length=5)
     phone: Optional[str] = Field(None, min_length=7, max_length=15)
     email: Optional[EmailStr] = None
-
+    user_id:Optional[int]=Field(None,ge=0)
+    image_path:Optional[str]=None
     class Config:
         orm_mode = True
 
