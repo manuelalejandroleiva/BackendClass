@@ -53,7 +53,6 @@ async def get_users(page: int = Query(1, ge=1),
     try:
         payload = {"page": page, "page_size": page_size}
         result = await broker.rpc_request("companies.get_all", payload)
-        print("📦 Respuesta del broker:", result)
         return result
     except Exception as e:
         print("❌ Error en /users:", e)

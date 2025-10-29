@@ -5,7 +5,6 @@ import json
 from .schema import BuisnessCreate,LicenciaCreate,BuisnessUpdate  
 from .models.models import Buisness
 from sqlalchemy.future import select
-from fastapi import HTTPException
 from .connection.database import engine
 from common.rabbitmq import message_pattern
 
@@ -22,7 +21,7 @@ async def handle_create_buisness(payload):
             # 🔍 Verificar si email ya existe
             existing_email = await db.scalar(select(Buisness.id).where(Buisness.email == buisness_data.email))
             if existing_email:
-                return {"success": False, "message": "Ya existe un usuario con ese correo."}
+                return {"success": False, "message": "There is another buisness with that email."}
 
             # 🧱 Crear nuevo buisness
             new_buissness_data = buisness_data.dict(exclude={"id"})
@@ -38,10 +37,6 @@ async def handle_create_buisness(payload):
 
         except Exception as e:
             return {"success": False, "message": str(e)}
-
-   
-
-
 
 
 async def get_all_buisness(session: AsyncSession, page: int = 1, page_size: int = 10):
@@ -86,11 +81,11 @@ async def handle_get_by_id(payload):
         try:
             buisness_id = payload.get("id")
             if buisness_id is None:
-                return {"success": False, "message": "Falta el ID en el payload."}
+                return {"success": False, "message": "The Id is missing in the payload."}
 
             buisness = await db.get(Buisness, int(buisness_id))
             if not buisness:
-                return {"success": False, "message": "Usuario no encontrado."}
+                return {"success": False, "message": "Buisness not found."}
 
             user_data = {
                 k: v for k, v in buisness.__dict__.items()
@@ -121,4 +116,43 @@ async def handle_delete_buissness(payload):
             return {"success": True, "message": "Buissness eliminado correctamente."}
 
         except Exception as e:
+            return {"success": False, "message": str(e)}
+        
+
+@message_pattern("buisness.update")
+async def handle_update_user(payload):
+    async with AsyncSession(engine) as db:
+        try:
+            buisness_id = payload.get("id")
+            if buisness_id is None:
+                return {"success": False, "message": "ID payload missing."}
+
+            buisness = await db.get(Buisness, int(buisness_id))
+            if not buisness:
+                return {"success": False, "message": "Buisness not found."}
+
+            # Validación Pydantic
+            buisness_data = BuisnessUpdate(**payload)
+
+            # 🔹 Solo actualizar campos enviados y no nulos
+            update_data = {
+                k: v for k, v in buisness_data.dict(exclude_unset=True, exclude={"id"}).items()
+                if v is not None
+            }
+
+            for key, value in update_data.items():
+                setattr(buisness, key, value)
+
+            db.add(buisness)
+            await db.commit()
+            await db.refresh(buisness)
+
+            buisness_response = {
+                k: v for k, v in buisness.__dict__.items() if k != "_sa_instance_state"
+            }
+
+            return {"success": True, "data": buisness_response}
+
+        except Exception as e:
+            await db.rollback()
             return {"success": False, "message": str(e)}

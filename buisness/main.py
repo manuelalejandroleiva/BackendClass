@@ -8,6 +8,7 @@ from .schema import BuisnessCreate
 from typing import Dict     
 from fastapi.staticfiles import StaticFiles
 from .service import *
+from fastapi import Query
 
 from fastapi import Depends, HTTPException
 
@@ -47,6 +48,60 @@ async def create_buisness(buisness: BuisnessCreate):
         
         raise HTTPException(status_code=500, detail=str(e))
 
+
+
+
+@app.get("/buisness")
+async def get_buisness(page: int = Query(1, ge=1), 
+                    page_size: int = Query(10, ge=1, le=100)):
+    """
+    Obtiene usuarios paginados.
+    """
+    try:
+        payload = {"page": page, "page_size": page_size}
+        result = await broker.rpc_request("buisness.get_all", payload)
+        return result
+    except Exception as e:
+        print("❌ Error en /users:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@app.get("/buisness_id")
+async def get_buisness_by_id(buisness_id:int):
+   
+    try:
+        payload = {"id":buisness_id}
+        result = await broker.rpc_request("buisness.get_by_id", payload)
+        return result
+    except Exception as e:
+        print("❌ Error en /users:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+    
+@app.delete("/users/{buisness_id}")
+async def delete_user(user_id: int):
+    """
+    Elimina un usuario por ID.
+    """
+    try:
+        payload = {"id": user_id}
+        result = await broker.rpc_request("buisness.delete", payload)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+    
+
+@app.put("/buisness/{buissness_id}")
+async def update_user(buisness_id: int, buisness: BuisnessUpdate):
+    """
+    Actualiza un usuario por ID.
+    """
+    try:
+        payload = buisness.dict()
+        payload["id"] = buisness_id  # incluir ID en el payload
+        result = await broker.rpc_request("buisness.update", payload)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
 
