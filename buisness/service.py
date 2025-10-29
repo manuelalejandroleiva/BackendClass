@@ -18,14 +18,14 @@ async def handle_create_buisness(payload):
             if isinstance(payload, str):
                 payload = json.loads(payload)
             # Validación con Pydantic
-            user_data = BuisnessCreate(**payload)
+            buisness_data = BuisnessCreate(**payload)
             # 🔍 Verificar si email ya existe
-            existing_email = await db.scalar(select(Buisness.id).where(Buisness.email == user_data.email))
+            existing_email = await db.scalar(select(Buisness.id).where(Buisness.email == buisness_data.email))
             if existing_email:
                 return {"success": False, "message": "Ya existe un usuario con ese correo."}
 
             # 🧱 Crear nuevo buisness
-            new_buissness_data = user_data.dict(exclude={"id"})
+            new_buissness_data = buisness_data.dict(exclude={"id"})
             new_buisness = Buisness(**new_buissness_data)
             db.add(new_buisness)
             await db.commit()
