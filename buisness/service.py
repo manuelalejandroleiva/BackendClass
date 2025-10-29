@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import json
 
 from .schema import BuisnessCreate,LicenciaCreate,BuisnessUpdate  
-from .models.models import Buisness, Licencia
+from .models.models import Buisness
 from sqlalchemy.future import select
 from fastapi import HTTPException
 from .connection.database import engine
@@ -12,55 +12,34 @@ from common.rabbitmq import message_pattern
 
 @message_pattern("buisness.create")
 async def handle_create_buisness(payload):
-    """
-    Handler RPC seguro para crear un negocio.
-    Siempre devuelve un dict con 'success' y 'message/data'.
-    """
-    import logging
-    logging.info("handle_create_buisness start")
-
-    # Asegurarse que payload sea dict
-    if isinstance(payload, str):
+   async with AsyncSession(engine) as db:
         try:
-            payload = json.loads(payload)
-        except json.JSONDecodeError:
-            return {"success": False, "message": "Payload no es un JSON válido."}
-
-    async with AsyncSession(engine) as db:
-        try:
-            # Validación Pydantic
-            buisness_data = BuisnessCreate(**payload)
-            buisness_dict = buisness_data.dict(exclude_unset=True, exclude={"id"})
-
-            # Verificar email duplicado
-            existing_email = await db.scalar(
-                select(Buisness.id).where(Buisness.email == buisness_data.email)
-            )
+            # ⚡ Payload debe ser dict
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            # Validación con Pydantic
+            user_data = BuisnessCreate(**payload)
+            # 🔍 Verificar si email ya existe
+            existing_email = await db.scalar(select(Buisness.id).where(Buisness.email == user_data.email))
             if existing_email:
                 return {"success": False, "message": "Ya existe un usuario con ese correo."}
 
-            # Crear instancia ORM
-            new_buisness = Buisness(**buisness_dict)
+            # 🧱 Crear nuevo buisness
+            new_buissness_data = user_data.dict(exclude={"id"})
+            new_buisness = Buisness(**new_buissness_data)
             db.add(new_buisness)
-
-            # Commit y refresh con timeout interno opcional
-            try:
-                await asyncio.wait_for(db.commit(), timeout=10)  # ajusta timeout según tu DB
-            except asyncio.TimeoutError:
-                await db.rollback()
-                return {"success": False, "message": "Timeout en commit de DB"}
-
+            await db.commit()
             await db.refresh(new_buisness)
 
-            # Serializar respuesta
-            response = {k: v for k, v in new_buisness.__dict__.items() if k != "_sa_instance_state"}
-            logging.info("handle_create_buisness end")
+            # ⚠ Excluir password en la respuesta
+            response = {k: v for k, v in new_buisness.__dict__.items() if k not in ("_sa_instance_state")}
+
             return {"success": True, "data": response}
 
         except Exception as e:
-            await db.rollback()
-            logging.exception("Error en handle_create_buisness")
             return {"success": False, "message": str(e)}
+
+   
 
 
 

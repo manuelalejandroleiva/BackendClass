@@ -7,6 +7,7 @@ from .connection.database import get_db, engine, Base
 from .schema import BuisnessCreate
 from typing import Dict     
 from fastapi.staticfiles import StaticFiles
+from .service import *
 
 from fastapi import Depends, HTTPException
 
@@ -19,7 +20,7 @@ app = FastAPI(
     description="API para gestionar negocios, licencias y usuarios",
     version="1.0.0"
 )
-app.on_event("startup")
+@app.on_event("startup")
 async def startup():
     # Crear las tablas en la base de datos al iniciar la aplicación
     async with engine.begin() as conn:
@@ -40,15 +41,10 @@ async def create_buisness(buisness: BuisnessCreate):
     payload = buisness.dict(exclude_unset=True)
     try:
         # timeout más alto para pruebas
-        result = await broker.rpc_request("buisness.create", payload, timeout=30)
-        if not result.get("success"):
-            raise HTTPException(status_code=400, detail=result.get("message"))
+        result = await broker.rpc_request("buisness.create", payload)
         return result
-    except asyncio.TimeoutError:
-        raise HTTPException(status_code=504, detail="Timeout en RPC con broker")
     except Exception as e:
-        import traceback
-        traceback.print_exc()
+        
         raise HTTPException(status_code=500, detail=str(e))
 
 
