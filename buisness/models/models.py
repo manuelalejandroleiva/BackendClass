@@ -1,7 +1,8 @@
 from sqlalchemy import Column, Integer, String, ForeignKey
 from sqlalchemy.orm import relationship
 from sqlalchemy.orm import sessionmaker, declarative_base
-from buisness.database.database import Base
+from database.database import Base
+
 
 
 
@@ -10,12 +11,6 @@ from buisness.database.database import Base
 # Licencia de arrendamiento
 
 
-class Licencia(Base):
-    __tablename__ = "licencia"   # 👈 en minúsculas siempre
-    id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
-
-    buisnesses = relationship("Buisness", back_populates="licencia")
 
 
 
@@ -33,17 +28,15 @@ class Buisness(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True)
     capital_money = Column(Integer, index=True)
-
-    licencia_id = Column(Integer, ForeignKey("licencia.id"))
-    licencia = relationship("Licencia", back_populates="buisnesses")
-
-    permisos = Column(String, index=True)
     categoria = Column(Integer, ForeignKey("category.id"))
     category = relationship("Category", back_populates="buisnesses")  # ✅ coincide con Category.buisnesses
-
     email = Column(String, unique=True, index=True)
     phone = Column(String, index=True)
+    user_id = Column(Integer, index=True) # referencia logica hacia los usuarios
     address = Column(String, index=True)
+    image_path = Column(String, nullable=True)
+
+
 
 
 

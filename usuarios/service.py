@@ -32,6 +32,9 @@ async def get_user_by_email(db: AsyncSession, email: str):
     result = await db.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
 
+ACCESS_TOKEN_EXPIRE_HOURS = 1
+REFRESH_TOKEN_EXPIRE_DAYS = 7
+
 @message_pattern("auth.login")
 async def handle_login(payload):
     async with AsyncSession(engine) as db:
@@ -49,11 +52,20 @@ async def handle_login(payload):
             if not verify_password(password, user.password):
                 return {"success": False, "message": "Contraseña incorrecta."}
 
-            access_token_expires = timedelta(hours=1)
+            # ✅ Crear tokens
             access_token = create_token(
                 {"sub": user.email, "id": user.id},
-                expires_delta=access_token_expires
+                expires_delta=timedelta(hours=ACCESS_TOKEN_EXPIRE_HOURS)
             )
+            refresh_token = create_token(
+                {"sub": user.email, "id": user.id, "type": "refresh"},
+                expires_delta=timedelta(days=REFRESH_TOKEN_EXPIRE_DAYS)
+            )
+
+            # ✅ Guardar refresh token en la DB
+            user.refresh_token = refresh_token
+            db.add(user)
+            await db.commit()
 
             user_data = {
                 k: v for k, v in user.__dict__.items()
@@ -62,7 +74,8 @@ async def handle_login(payload):
 
             return {
                 "success": True,
-                "token": access_token,
+                "access_token": access_token,
+                "refresh_token": refresh_token,
                 "user": user_data
             }
 
