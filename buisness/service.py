@@ -120,7 +120,7 @@ async def handle_delete_buissness(payload):
         
 
 @message_pattern("buisness.update")
-async def handle_update_user(payload):
+async def handle_update_buisness(payload):
     async with AsyncSession(engine) as db:
         try:
             buisness_id = payload.get("id")
