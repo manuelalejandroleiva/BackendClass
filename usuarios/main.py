@@ -5,6 +5,8 @@ from .connection.database import engine, Base
 from .service import *  # 👈 esto importa y registra los message_pattern
 from fastapi import Query
 from .schema import UserCreateDTO,UserResponseOne
+from fastapi import Form, UploadFile, File
+from fastapi.responses import FileResponse
 
 app = FastAPI()
 
@@ -107,4 +109,77 @@ async def update_user(user_id: int, user: UserCreateDTO):
         result = await broker.rpc_request("users.update", payload)
         return result
     except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+
+
+@app.post("/airesponse")
+async def get_ai_response(prompt: str):
+    """
+    Obtiene una respuesta de la API de IA.
+    """
+    try:
+        payload = {"prompt": prompt}
+        result = await broker.rpc_request("ai.get_response", payload)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/aiimage")
+async def get_ai_image(
+    prompt: str = Form(...),
+    image: UploadFile = File(None)  # Opcional: para subir una imagen de referencia
+):
+    """
+    Obtiene una imagen del telefono o desde la PC y la procesa la IA.
+    """
+    try:
+        payload = {"prompt": prompt}
+        
+        # Si se subió una imagen, procesarla
+        if image:
+            # Guardar la imagen temporalmente
+            image_path = f"temp_{image.filename}"
+            with open(image_path, "wb") as buffer:
+                content = await image.read()
+                buffer.write(content)
+            
+            # Agregar la ruta de la imagen al payload
+            payload["image_path"] = image_path
+        
+        # Llamar al servicio RPC
+        result = await broker.rpc_request("ai.get_image", payload)
+        
+        # Limpiar archivo temporal si existe
+        if image and os.path.exists(image_path):
+            os.remove(image_path)
+        
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        
+        # Devolver la imagen generada
+        if result.get("image_path"):
+            return FileResponse(
+                result["image_path"], 
+                media_type="image/png",
+                filename="generated_image.png"
+            )
+        elif result.get("image_base64"):
+            # Si tienes la imagen en base64, puedes devolverla así
+            return {
+                "success": True,
+                "image_base64": result["image_base64"],
+                "message": result.get("message", "Image generated successfully")
+            }
+        else:
+            return {"success": True, "message": result.get("message")}
+    
+    except HTTPException:
+        raise
+    except Exception as e:
+        # Limpiar archivo temporal en caso de error
+        if image and 'image_path' in locals() and os.path.exists(image_path):
+            os.remove(image_path)
         raise HTTPException(status_code=500, detail=str(e))

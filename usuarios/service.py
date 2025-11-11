@@ -10,11 +10,23 @@ from .schema import UserCreate, UserSchema,UserCreateDTO
 from jose import jwt
 from fastapi import HTTPException
 import os 
+from dotenv import load_dotenv
+from google import genai
+from playsound import playsound
+from gtts import gTTS
+from PIL import Image
+import requests
+from io import BytesIO
+import re
+from google.genai import types
 
 
 
 ALGORITHM = "HS256"
 SECRET_KEY = "supersecretkey"  # ⚠️ cámbialo por tu valor real
+load_dotenv()
+
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
@@ -244,3 +256,80 @@ async def handle_update_user(payload):
 
         except Exception as e:
             return {"success": False, "message": str(e)}
+        
+
+
+
+@message_pattern("ai.get_response")
+async def handle_airequest(payload):
+    try:
+        prompt = payload.get("prompt", "").strip()
+        if not prompt:
+            return {"success": False, "message": "El prompt es requerido."}
+        
+        # Convertir a string por seguridad
+        prompt_str = str(prompt) + ("?" if "?" not in str(prompt) else "")
+        
+        # Generar contenido
+        response = client.models.generate_content(
+            model="gemini-flash-latest",
+            contents=prompt_str
+        )
+
+        return {
+            "success": True, 
+            "response": response.text
+            }
+
+    except Exception as e:
+        return {"success": False, "message": f"Error en Gemini API: {str(e)}"}
+
+
+
+
+
+@message_pattern("ai.get_image")
+async def handle_aiimagerequest(payload):
+    try:
+        print(payload)
+        payload_work=payload.get("prompt", "").strip()
+        
+        model = "gemini-2.5-flash-image"
+        contents = [
+            types.Content(
+                role="user",
+                parts=[
+                    types.Part.from_text(text="""INSERT_INPUT_HERE"""),
+                ],
+            ),
+        ]
+        generate_content_config = types.GenerateContentConfig(
+            response_modalities=[
+                "IMAGE",
+                "TEXT",
+            ],
+            image_config=types.ImageConfig(
+                image_size="1K",
+            ),
+        )
+
+        file_index = 0
+        for chunk in client.models.generate_content_stream(
+            model=model,
+            contents=contents,
+            config=generate_content_config,
+        ):
+            for modality in chunk.response_modalities:
+                if modality.type == types.ModalityType.IMAGE:
+                    for image in modality.images:
+                        image_data = image.image_bytes
+                        image_filename = f"generated_image_{file_index}.png"
+                        with open(image_filename, "wb") as img_file:
+                            img_file.write(image_data)
+                        file_index += 1
+                        return {
+                            "success": True,
+                            "image_filename": image_filename
+                        }
+    except Exception as e:
+        return {"success": False, "message": f"Error: {str(e)}"}
