@@ -1,6 +1,7 @@
 # create_tables.py
 import asyncio
-from connection.database import engine, Base
+from connection.database import engine
+from common.database import Base
 
 
 async def init_models():

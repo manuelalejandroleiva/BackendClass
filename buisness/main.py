@@ -1,9 +1,13 @@
 import asyncio
 import uvicorn
 from fastapi import FastAPI
+from dotenv import load_dotenv
+import os
+load_dotenv()
 from common.rabbitmq import MessageBroker
 from sqlalchemy.ext.asyncio import AsyncSession
-from .connection.database import get_db, engine, Base
+from .connection.database import get_db, engine
+from common.database import Base
 from .schema import BuisnessCreate
 from typing import Dict     
 from fastapi.staticfiles import StaticFiles
@@ -14,7 +18,14 @@ from fastapi import Depends, HTTPException
 
 
 
-broker = MessageBroker("amqp://guest:guest@localhost:5672/")
+raw_rabbit = os.getenv("RABBITMQ_URL")
+if not raw_rabbit:
+    raise RuntimeError("RABBITMQ_URL environment variable is not set")
+
+# Expand possible ${VAR} placeholders from .env
+RABBITMQ_URL = os.path.expandvars(raw_rabbit)
+
+broker = MessageBroker(RABBITMQ_URL)
 
 app = FastAPI(
     title="My Buisness App",   # 👈 Aquí cambias el nombre

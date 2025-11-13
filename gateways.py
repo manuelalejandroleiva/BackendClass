@@ -22,6 +22,9 @@ protected_router = APIRouter(
     dependencies=[Depends(get_current_user)]
 )
 
+public_router = APIRouter()
+
+
 
 app = FastAPI(title="API Gateway", description="API Gateway para usuarios y negocios", version="1.0.0")
 
@@ -30,15 +33,15 @@ USER_SERVICE_URL = os.getenv("SERVICE_USER_PORT_DATA")
 USER_SERVICE_PATH = os.getenv("SERVICE_PAYMENT_PORT_DATA")
 
 
-@app.post("/login")
+@public_router.post("/login")
 async def login( 
     login_data: LoginRequest = Body(...),
    
 ):
     async with httpx.AsyncClient() as client:
         response = await client.post(
-            f"{USER_SERVICE_URL}/login",
-            json=login_data.dict()
+            f"{USER_SERVICE_URL}/auth/login",
+            json=login_data.dict(),
         )
     return response.json()
 
@@ -59,18 +62,37 @@ async def get_user(
     return response.json()
 
 
-@app.post("/users/create")
+@public_router.post("/users/create")
 async def create_user(
     data: UserCreate = Body(...),
    
     authorization: Optional[str] = Depends(get_token)
 ):
+
     headers = {"Authorization": authorization} if authorization else {}
+    url = f"{USER_SERVICE_URL}/users"
     async with httpx.AsyncClient() as client:
+        try:
+            response = await client.post(url, json=data.dict(), headers=headers, timeout=10.0)
+        except httpx.RequestError as e:
+            # Downstream service unreachable
+            raise HTTPException(status_code=503, detail=f"User service unreachable: {e}")
 
-       response = await client.post(f"{USER_SERVICE_URL}/users/create/", json=data.dict(), headers=headers)
+    # Debug info: status and raw text (avoid calling .json() blindly)
+    if response.status_code >= 400:
+        # return downstream error text in detail when possible
+        text = response.text
+        raise HTTPException(status_code=response.status_code, detail=f"Downstream error: {text}")
 
-    return response.json()
+    content_type = response.headers.get("content-type", "")
+    if "application/json" not in content_type:
+        # Not JSON — include raw response for debugging
+        raise HTTPException(status_code=502, detail=f"Downstream returned non-JSON response: {response.status_code} - {response.text}")
+
+    try:
+        return response.json()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Failed to decode JSON from user service: {e}. Raw: {response.text}")
 
 
 
@@ -99,7 +121,7 @@ async def updateUsers(
     authorization: Optional[str] = Depends(get_token)):
     headers = {"Authorization": authorization} if authorization else {}
     async with httpx.AsyncClient() as client:
-        response= await client.put(f"{USER_SERVICE_URL}/users/{user_id}", json=user.dict() ,headers=headers)
+        response = await client.put(f"{USER_SERVICE_URL}/users/{user_id}", json=user.dict(), headers=headers)
         if response.status_code >= 400:
             error_data = response.json()
             raise HTTPException(status_code=response.status_code, detail=error_data.get("detail", "Error al actualizar el  usuario"))
@@ -145,7 +167,7 @@ async def get_all_licences(skip: int = 0, limit: int = 10, authorization: Option
 
 
 
-protected_router.get("/buisness_get")
+@protected_router.get("/buisness_get")
 async def get_all_buisnesses(skip: int = 0, limit: int = 10, authorization: Optional[str] = Depends(get_token)):
     headers = {"Authorization": authorization} if authorization else {}
     async with httpx.AsyncClient() as client:
@@ -216,6 +238,7 @@ async def delete_licence(
 
 
 app.include_router(protected_router,prefix="/api")
+app.include_router(public_router, prefix="/api")
 
     
     

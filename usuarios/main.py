@@ -1,7 +1,11 @@
 from fastapi import FastAPI, HTTPException
 from usuarios.DTO.dto import LoginRequest
+from dotenv import load_dotenv
+import os
+load_dotenv()
 from common.rabbitmq import MessageBroker
-from .connection.database import engine, Base
+from .connection.database import engine
+from common.database import Base
 from .service import *  # 👈 esto importa y registra los message_pattern
 from fastapi import Query
 from .schema import UserCreateDTO,UserResponseOne
@@ -10,7 +14,14 @@ from fastapi.responses import FileResponse
 
 app = FastAPI()
 
-broker = MessageBroker("amqp://guest:guest@localhost:5672/")
+raw_rabbit = os.getenv("RABBITMQ_URL")
+if not raw_rabbit:
+    raise RuntimeError("RABBITMQ_URL environment variable is not set")
+
+# Expand possible ${VAR} placeholders from .env
+RABBITMQ_URL = os.path.expandvars(raw_rabbit)
+
+broker = MessageBroker(RABBITMQ_URL)
 
 @app.on_event("startup")
 async def startup():
