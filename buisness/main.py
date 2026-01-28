@@ -88,10 +88,10 @@ async def get_buisness_by_id(buisness_id:int):
         print("❌ Error en /users:", e)
         raise HTTPException(status_code=500, detail=str(e))
     
-@app.delete("/users/{buisness_id}")
-async def delete_user(user_id: int):
+@app.delete("/buisness/{buisness_id}")
+async def delete_buisness(user_id: int):
     """
-    Elimina un usuario por ID.
+    Elimina un buissness por ID.
     """
     try:
         payload = {"id": user_id}
@@ -102,7 +102,7 @@ async def delete_user(user_id: int):
     
 
 @app.put("/buisness/{buissness_id}")
-async def update_user(buisness_id: int, buisness: BuisnessUpdate):
+async def update_buisness(buisness_id: int, buisness: BuisnessUpdate):
     """
     Actualiza un usuario por ID.
     """
@@ -114,7 +114,24 @@ async def update_user(buisness_id: int, buisness: BuisnessUpdate):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-app.mount("/uploads", StaticFiles(directory="uploads"), name="uploads")
+
+
+#Productos
+
+@app.get("/productos")
+async def get_buisness(page: int = Query(1, ge=1), 
+                    page_size: int = Query(10, ge=1, le=100)):
+    """
+    Obtiene productos paginados.
+    """
+    try:
+        payload = {"page": page, "page_size": page_size}
+        result = await broker.rpc_request("products.get_all", payload)
+        return result
+    except Exception as e:
+        print("❌ Error en /users:", e)
+        raise HTTPException(status_code=500, detail=str(e))
+
 
 
     
