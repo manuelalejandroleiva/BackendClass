@@ -3,7 +3,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 import json
 
 from .schema import BuisnessCreate,LicenciaCreate,BuisnessUpdate  
-from .models.models import Buisness
+from .models.models import Buisness,Product
 from sqlalchemy.future import select
 from .connection.database import engine
 from common.rabbitmq import message_pattern
@@ -156,3 +156,41 @@ async def handle_update_buisness(payload):
         except Exception as e:
             await db.rollback()
             return {"success": False, "message": str(e)}
+        
+
+
+
+async def get_all_product(session: AsyncSession, page: int = 1, page_size: int = 10):
+    offset = (page - 1) * page_size
+    result = await session.execute(select(Product).offset(offset).limit(page_size))
+    buisness = result.scalars().all()
+
+    # Contamos total de registros para poder enviar info de paginación
+    total_result = await session.execute(select(Product))
+    total = len(total_result.scalars().all())
+
+    return buisness, total
+
+
+@message_pattern("products.get_all")
+async def handle_get_all(payload):
+    page = payload.get("page", 1)
+    page_size = payload.get("page_size", 10)
+    async with AsyncSession(engine) as session:
+        users, total = await get_all_product(session, page, page_size)
+
+        data = [
+            {k: v for k, v in u.__dict__.items() if k not in ("_sa_instance_state") }
+            for u in users
+        ]
+
+        response = {
+            "page": page,
+            "page_size": page_size,
+            "total": total,
+            "total_pages": (total + page_size - 1) // page_size,
+            "data": data
+        }
+
+       
+        return response

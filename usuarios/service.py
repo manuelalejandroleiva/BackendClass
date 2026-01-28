@@ -5,18 +5,16 @@ from .connection.database import engine
 from .models.models import User
 from common.rabbitmq import message_pattern
 import bcrypt
-from datetime import datetime, timedelta
-from .schema import UserCreate, UserSchema,UserCreateDTO
+from datetime import datetime, timedelta,timezone
+from .schema import UserCreateDTO
 from jose import jwt
-from fastapi import HTTPException
+
 import os 
 from dotenv import load_dotenv
 from google import genai
 from playsound import playsound
-from gtts import gTTS
-from PIL import Image
-import requests
-from io import BytesIO
+
+
 import re
 from google.genai import types
 
@@ -36,7 +34,7 @@ def verify_password(plain_password: str, hashed_password: str) -> bool:
 
 def create_token(data: dict, expires_delta: timedelta):
     to_encode = data.copy()
-    expire = datetime.utcnow() + expires_delta
+    expire = datetime.now(timezone.utc)+expires_delta
     to_encode.update({"exp": expire})
     return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
 

@@ -62,6 +62,7 @@ class Product(Base):
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, unique=True, index=True) 
     price=Column(Integer,index=True)
+    sold=Column(Integer,index=True)
     stock=Column(Integer,index=True)
-    buisness_id = Column(Integer, ForeignKey("buisness.id"))  # clave foránea
-    buisness = relationship("Buisness")   
+    buisness_id = Column(Integer, index=True)  # clave foránea
+    
