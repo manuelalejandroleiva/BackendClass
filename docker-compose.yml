@@ -28,6 +28,35 @@ services:
       - "15672:15672"
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
+
+  inventory-service:
+    build: ./inventory
+    container_name: inventory_service
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8002:8000"
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./inventory:/app
+
+  orders-service:
+    build: ./orders
+    container_name: orders_service
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8003:8000"
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./orders:/app
+
 volumes:
   postgres_data:
   rabbitmq_data:
