@@ -11,8 +11,9 @@ from alembic import context
 
 # Import Base and models for autogenerate
 from common.database import Base
-from buisness.models.models import Category, Buisness, Tables, Product
-from usuarios.models.models import Role, User
+from common.models import (
+    Role, User, Category, Buisness, Tables, Product, Sale, Order, OrderItem
+)
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

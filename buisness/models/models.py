@@ -36,6 +36,7 @@ class Buisness(Base):
     user_id = Column(Integer, index=True) # referencia logica hacia los usuarios
     address = Column(String, index=True)
     image_path = Column(String, nullable=True)
+    business_type = Column(String, default="general", index=True)  # restaurant | store | general
 
 
 
@@ -65,4 +66,15 @@ class Product(Base):
     sold=Column(Integer,index=True)
     stock=Column(Integer,index=True)
     buisness_id = Column(Integer, index=True)  # clave foránea
+
+
+class Sale(Base):
+    __tablename__ = "sale"
+    id = Column(Integer, primary_key=True, index=True)
+    total = Column(Integer, default=0)
+    payment_method = Column(String, default="cash")
+    business_id = Column(Integer, index=True)
+    cashier_id = Column(Integer, nullable=True)
+    discount = Column(Integer, default=0)
+    created_at = Column(String, index=True)  # Se guardará como string ISO
     

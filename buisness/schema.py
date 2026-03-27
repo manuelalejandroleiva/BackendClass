@@ -12,14 +12,15 @@ class BuisnessBase(BaseModel):
     email: Optional[EmailStr] = None
     user_id:Optional[int]=Field(None,ge=0)
     image_path:Optional[str]=None
+    business_type: Optional[str] = Field("general", description="Tipo: restaurant | store | general")
     class Config:
         orm_mode = True
 
 
 class BuisnessCreate(BuisnessBase):
-    # si tienes campos obligatorios para creación, defínelos aquí
     name: str
     capital_money: int
+    business_type: str = "general"
 
 
 class BuisnessUpdate(BuisnessBase):

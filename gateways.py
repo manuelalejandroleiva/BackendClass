@@ -3,18 +3,18 @@ from dotenv import load_dotenv
 import httpx
 from usuarios.connection.database import get_db
 
-from usuarios.DTO.dto import LoginRequest  # Asegúrate de que DTO/model.py esté en el mismo directorio o ajusta la ruta
-# from usuarios.connection.database import SessionLocal, engine, Base,get_db
+from usuarios.DTO.dto import LoginRequest
 from sqlalchemy.ext.asyncio import AsyncSession
 from usuarios.dependencies.dependencies import get_current_user
 from typing import Optional
 from buisness.schema import BuisnessCreate,LicenciaCreate,BuisnessUpdate
 import os
 from fastapi import HTTPException
-
-
+from fastapi import Query
 
 from usuarios.schema import *
+from inventory.schema import SaleCreate, SaleItemCreate
+from orders.schema import OrderCreate, OrderItemCreate, TableCreate
 load_dotenv()
 
 # 🔐 Router protegido
@@ -31,6 +31,8 @@ app = FastAPI(title="API Gateway", description="API Gateway para usuarios y nego
 
 USER_SERVICE_URL = os.getenv("SERVICE_USER_PORT_DATA")
 USER_SERVICE_PATH = os.getenv("SERVICE_PAYMENT_PORT_DATA")
+INVENTORY_SERVICE_URL = os.getenv("SERVICE_INVENTORY_PORT_DATA")
+ORDERS_SERVICE_URL = os.getenv("SERVICE_ORDERS_PORT_DATA")
 
 
 @public_router.post("/login")
@@ -239,6 +241,201 @@ async def delete_licence(
 
 app.include_router(protected_router,prefix="/api")
 app.include_router(public_router, prefix="/api")
+
+
+# ============== INVENTORY / SALES ==============
+
+@protected_router.post("/sales")
+async def create_sale(
+    sale: SaleCreate = Body(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{INVENTORY_SERVICE_URL}/sales/create",
+            json=sale.dict(),
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.get("/sales/{business_id}")
+async def get_sales(
+    business_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{INVENTORY_SERVICE_URL}/sales/{business_id}",
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.get("/sales/{business_id}/report/period")
+async def sales_report_period(
+    business_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{INVENTORY_SERVICE_URL}/sales/report/period",
+            params={"business_id": business_id},
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.get("/sales/{business_id}/report/top-products")
+async def top_products(
+    business_id: int,
+    limit: int = Query(10, ge=1, le=50),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{INVENTORY_SERVICE_URL}/sales/report/top-products",
+            params={"business_id": business_id, "limit": limit},
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.get("/sales/{business_id}/report/summary")
+async def sales_summary(
+    business_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{INVENTORY_SERVICE_URL}/sales/report/summary",
+            params={"business_id": business_id},
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.patch("/products/{product_id}/stock")
+async def update_stock(
+    product_id: int,
+    quantity: int = Query(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.patch(
+            f"{INVENTORY_SERVICE_URL}/products/{product_id}/stock",
+            params={"quantity": quantity},
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+
+# ============== ORDERS / TABLES ==============
+
+@protected_router.post("/tables")
+async def create_table(
+    table: TableCreate = Body(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{ORDERS_SERVICE_URL}/tables",
+            json=table.dict(),
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.get("/tables/{business_id}")
+async def get_tables(
+    business_id: int,
+    available_only: bool = Query(False),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{ORDERS_SERVICE_URL}/tables/{business_id}",
+            params={"available_only": available_only},
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.post("/orders")
+async def create_order(
+    order: OrderCreate = Body(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{ORDERS_SERVICE_URL}/orders",
+            json=order.dict(),
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.get("/orders/{business_id}")
+async def get_orders(
+    business_id: int,
+    table_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        params = {"business_id": business_id}
+        if table_id:
+            params["table_id"] = table_id
+        if status:
+            params["status"] = status
+        response = await client.get(
+            f"{ORDERS_SERVICE_URL}/orders/{business_id}",
+            params=params,
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.get("/orders/detail/{order_id}")
+async def get_order_detail(
+    order_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{ORDERS_SERVICE_URL}/orders/detail/{order_id}",
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.patch("/orders/{order_id}/status")
+async def update_order_status(
+    order_id: int,
+    status: str = Query(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.patch(
+            f"{ORDERS_SERVICE_URL}/orders/{order_id}/status",
+            json={"status": status},
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
 
     
     
