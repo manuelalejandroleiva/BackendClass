@@ -15,6 +15,7 @@ from fastapi import Query
 from usuarios.schema import *
 from inventory.schema import SaleCreate, SaleItemCreate
 from orders.schema import OrderCreate, OrderItemCreate, TableCreate
+from rentas.schema import VehicleCreate, VehicleUpdate, RentalCreate, GeofenceCreate, TrackingUpdate
 load_dotenv()
 
 # 🔐 Router protegido
@@ -33,6 +34,8 @@ USER_SERVICE_URL = os.getenv("SERVICE_USER_PORT_DATA")
 USER_SERVICE_PATH = os.getenv("SERVICE_PAYMENT_PORT_DATA")
 INVENTORY_SERVICE_URL = os.getenv("SERVICE_INVENTORY_PORT_DATA")
 ORDERS_SERVICE_URL = os.getenv("SERVICE_ORDERS_PORT_DATA")
+RENTS_SERVICE_URL = os.getenv("SERVICE_RENTS_PORT_DATA")
+REALTIME_SERVICE_URL = os.getenv("REALTIME_SERVICE_URL")
 
 
 @public_router.post("/login")
@@ -437,9 +440,301 @@ async def update_order_status(
             raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
         return response.json()
 
-    
-    
+
+# ============== RENTS / GPS ==============
+
+@protected_router.post("/vehicles")
+async def create_vehicle(
+    vehicle: VehicleCreate = Body(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{RENTS_SERVICE_URL}/vehicles",
+            json=vehicle.dict(),
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.get("/vehicles")
+async def get_vehicles(
+    status: Optional[str] = Query(None),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        params = {}
+        if status:
+            params["status"] = status
+        response = await client.get(
+            f"{RENTS_SERVICE_URL}/vehicles",
+            params=params,
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.get("/vehicles/{vehicle_id}")
+async def get_vehicle(
+    vehicle_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{RENTS_SERVICE_URL}/vehicles/{vehicle_id}",
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.put("/vehicles/{vehicle_id}")
+async def update_vehicle(
+    vehicle_id: int,
+    vehicle: VehicleUpdate = Body(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.put(
+            f"{RENTS_SERVICE_URL}/vehicles/{vehicle_id}",
+            json=vehicle.dict(exclude_unset=True),
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.delete("/vehicles/{vehicle_id}")
+async def delete_vehicle(
+    vehicle_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.delete(
+            f"{RENTS_SERVICE_URL}/vehicles/{vehicle_id}",
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.post("/tracking/update")
+async def update_tracking(
+    tracking: TrackingUpdate = Body(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{RENTS_SERVICE_URL}/tracking/update",
+            json=tracking.dict(),
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.get("/tracking/{vehicle_id}/current")
+async def get_current_location(
+    vehicle_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.get(
+            f"{RENTS_SERVICE_URL}/tracking/{vehicle_id}/current",
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.get("/tracking/{vehicle_id}/history")
+async def get_tracking_history(
+    vehicle_id: int,
+    start_date: Optional[str] = Query(None),
+    end_date: Optional[str] = Query(None),
+    limit: int = Query(100, ge=1, le=1000),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        params = {"limit": limit}
+        if start_date:
+            params["start_date"] = start_date
+        if end_date:
+            params["end_date"] = end_date
+        response = await client.get(
+            f"{RENTS_SERVICE_URL}/tracking/{vehicle_id}/history",
+            params=params,
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.post("/rentals")
+async def create_rental(
+    rental: RentalCreate = Body(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{RENTS_SERVICE_URL}/rentals",
+            json=rental.dict(),
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.post("/rentals/{rental_id}/complete")
+async def complete_rental(
+    rental_id: int,
+    end_latitude: Optional[float] = Body(None),
+    end_longitude: Optional[float] = Body(None),
+    rate_per_hour: Optional[float] = Body(10.0),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    payload = {}
+    if end_latitude is not None:
+        payload["end_latitude"] = end_latitude
+    if end_longitude is not None:
+        payload["end_longitude"] = end_longitude
+    if rate_per_hour is not None:
+        payload["rate_per_hour"] = rate_per_hour
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{RENTS_SERVICE_URL}/rentals/{rental_id}/complete",
+            json=payload,
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.get("/rentals")
+async def get_rentals(
+    status: Optional[str] = Query(None),
+    user_id: Optional[int] = Query(None),
+    vehicle_id: Optional[int] = Query(None),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        params = {}
+        if status:
+            params["status"] = status
+        if user_id:
+            params["user_id"] = user_id
+        if vehicle_id:
+            params["vehicle_id"] = vehicle_id
+        response = await client.get(
+            f"{RENTS_SERVICE_URL}/rentals",
+            params=params,
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.post("/geofences")
+async def create_geofence(
+    geofence: GeofenceCreate = Body(...),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{RENTS_SERVICE_URL}/geofences",
+            json=geofence.dict(),
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.get("/geofences")
+async def get_geofences(
+    vehicle_id: Optional[int] = Query(None),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        params = {}
+        if vehicle_id:
+            params["vehicle_id"] = vehicle_id
+        response = await client.get(
+            f"{RENTS_SERVICE_URL}/geofences",
+            params=params,
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.delete("/geofences/{geofence_id}")
+async def delete_geofence(
+    geofence_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.delete(
+            f"{RENTS_SERVICE_URL}/geofences/{geofence_id}",
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
+
+@protected_router.get("/alerts")
+async def get_alerts(
+    vehicle_id: Optional[int] = Query(None),
+    is_read: Optional[bool] = Query(None),
+    limit: int = Query(50, ge=1, le=100),
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        params = {"limit": limit}
+        if vehicle_id:
+            params["vehicle_id"] = vehicle_id
+        if is_read is not None:
+            params["is_read"] = is_read
+        response = await client.get(
+            f"{RENTS_SERVICE_URL}/alerts",
+            params=params,
+            headers=headers
+        )
+        return response.json()
+
+@protected_router.post("/alerts/{alert_id}/read")
+async def mark_alert_read(
+    alert_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    headers = {"Authorization": authorization} if authorization else {}
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            f"{RENTS_SERVICE_URL}/alerts/{alert_id}/read",
+            headers=headers
+        )
+        if response.status_code >= 400:
+            raise HTTPException(status_code=response.status_code, detail=response.json().get("detail", "Error"))
+        return response.json()
 
 
+# ============== REALTIME / WEBSOCKET ==============
+
+@protected_router.get("/realtime/health")
+async def realtime_health(authorization: Optional[str] = Depends(get_token)):
+    async with httpx.AsyncClient() as client:
+        try:
+            response = await client.get(f"{REALTIME_SERVICE_URL}/health")
+            return response.json()
+        except Exception as e:
+            raise HTTPException(status_code=503, detail=f"Realtime service unavailable: {e}")
 
 

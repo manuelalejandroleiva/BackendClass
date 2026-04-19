@@ -57,6 +57,33 @@ services:
     volumes:
       - ./orders:/app
 
+  rents-service:
+    build: ./rentas
+    container_name: rents_service
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8004:8000"
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./rentas:/app
+
+  realtime-service:
+    build: ./realtime
+    container_name: realtime_service
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8001:8000"
+    depends_on:
+      - rents-service
+    volumes:
+      - ./realtime:/app
+
 volumes:
   postgres_data:
   rabbitmq_data:
