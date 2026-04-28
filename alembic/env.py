@@ -6,6 +6,7 @@ from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
 from sqlalchemy import pool
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from alembic import context
 
@@ -69,8 +70,11 @@ def run_migrations_online() -> None:
     # Expand ${...} placeholders if present
     db_url = os.path.expandvars(raw_db_url)
 
+    # Convert asyncpg to psycopg2 for alembic sync
+    sync_url = db_url.replace("postgresql+asyncpg://", "postgresql://")
+
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = db_url
+    configuration["sqlalchemy.url"] = sync_url
     
     connectable = engine_from_config(
         configuration,
