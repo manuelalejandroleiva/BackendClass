@@ -6,7 +6,7 @@ from typing import Dict, Any, Optional
 
 load_dotenv()
 
-REALTIME_SERVICE_URL = os.getenv("REALTIME_SERVICE_URL", "http://realtime-service:8080")
+REALTIME_SERVICE_URL = os.getenv("REALTIME_SERVICE_URL", "http://realtime:8001")
 
 
 class RealtimeClient:

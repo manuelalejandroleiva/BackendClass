@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-REALTIME_URL = os.getenv("REALTIME_SERVICE_URL", "http://realtime-service:8080")
+REALTIME_URL = os.getenv("REALTIME_SERVICE_URL", "http://realtime-service:8000")
 
 
 async def notify_realtime(endpoint: str, data: dict):
