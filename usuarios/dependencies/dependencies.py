@@ -6,7 +6,7 @@ from usuarios.connection.database import SessionLocal
 from usuarios.service import get_user_by_email
 oauth2_scheme = HTTPBearer()
 
-SECRET_KEY = "my-secret-key"
+SECRET_KEY = "supersecretkey"
 ALGORITHM = "HS256"
 
 async def get_current_user(

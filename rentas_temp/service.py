@@ -127,6 +127,14 @@ async def handle_get_all_vehicles(payload):
     async with AsyncSession(engine) as db:
         try:
             status_filter = payload.get("status")
+            
+            # Validar que el status sea válido (case-insensitive)
+            if status_filter:
+                status_filter_upper = status_filter.upper()
+                if status_filter_upper not in [s.value for s in VehicleStatus]:
+                    return {"success": False, "message": "Estado no encontrado"}
+                status_filter = status_filter_upper
+            
             query = select(Vehicle)
             if status_filter:
                 query = query.where(Vehicle.status == status_filter)
@@ -207,7 +215,11 @@ async def handle_update_vehicle(payload):
             for field in update_fields:
                 if field in payload:
                     if field == "status":
-                        setattr(vehicle, field, VehicleStatus(payload[field]))
+                        # Validar que el status sea válido (case-insensitive)
+                        status_upper = payload[field].upper()
+                        if status_upper not in [s.value for s in VehicleStatus]:
+                            return {"success": False, "message": "Estado no encontrado"}
+                        setattr(vehicle, field, VehicleStatus(status_upper))
                     else:
                         setattr(vehicle, field, payload[field])
 

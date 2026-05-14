@@ -1,5 +1,5 @@
 import uvicorn
-from realtime.server import app
+from server import app
 from dotenv import load_dotenv
 import os
 

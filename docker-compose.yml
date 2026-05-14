@@ -16,10 +16,6 @@ services:
     volumes:
       - ./gateways.py:/app/gateways.py
       - ./common:/app/common
-      - ./usuarios:/app/usuarios
-      - ./buisness:/app/buisness
-      - ./inventory:/app/inventory
-      - ./orders:/app/orders
     networks:
       - backend-network
 
@@ -57,6 +53,44 @@ services:
     networks:
       - backend-network
 
+  usuarios-service:
+    build:
+      context: .
+      dockerfile: ./usuarios/Dockerfile
+    container_name: backend_usuarios_service
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./usuarios:/app/usuarios
+      - ./common:/app/common
+    networks:
+      - backend-network
+
+  buisness-service:
+    build:
+      context: .
+      dockerfile: ./buisness/Dockerfile
+    container_name: backend_buisness_service
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8001:8001"
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./buisness:/app/buisness
+      - ./common:/app/common
+    networks:
+      - backend-network
+
   inventory-service:
     build:
       context: .
@@ -71,7 +105,8 @@ services:
       - postgres
       - rabbitmq
     volumes:
-      - ./inventory:/app
+      - ./inventory:/app/inventory
+      - ./common:/app/common
     networks:
       - backend-network
 
@@ -89,7 +124,8 @@ services:
       - postgres
       - rabbitmq
     volumes:
-      - ./orders:/app
+      - ./orders:/app/orders
+      - ./common:/app/common
     networks:
       - backend-network
 
@@ -109,45 +145,7 @@ services:
       - postgres
       - rabbitmq
     volumes:
-      - ./rentas:/app
-      - ./common:/app/common
-    networks:
-      - backend-network
-
-  usuarios-service:
-    build:
-      context: .
-      dockerfile: ./usuarios/Dockerfile
-    container_name: backend_usuarios_service
-    restart: always
-    env_file:
-      - .env
-    ports:
-      - "8000:8000"
-    depends_on:
-      - postgres
-      - rabbitmq
-    volumes:
-      - ./usuarios:/app
-      - ./common:/app/common
-    networks:
-      - backend-network
-
-  buisness-service:
-    build:
-      context: .
-      dockerfile: ./buisness/Dockerfile
-    container_name: backend_buisness_service
-    restart: always
-    env_file:
-      - .env
-    ports:
-      - "8001:8001"
-    depends_on:
-      - postgres
-      - rabbitmq
-    volumes:
-      - ./buisness:/app
+      - ./rentas:/app/rentas
       - ./common:/app/common
     networks:
       - backend-network
@@ -166,33 +164,6 @@ services:
       - ./realtime:/app
     networks:
       - backend-network
-
-  rents-service:
-    build: ./rentas
-    container_name: rents_service
-    restart: always
-    env_file:
-      - .env
-    ports:
-      - "8004:8000"
-    depends_on:
-      - postgres
-      - rabbitmq
-    volumes:
-      - ./rentas:/app
-
-  realtime-service:
-    build: ./realtime
-    container_name: realtime_service
-    restart: always
-    env_file:
-      - .env
-    ports:
-      - "8001:8000"
-    depends_on:
-      - rents-service
-    volumes:
-      - ./realtime:/app
 
 volumes:
   postgres_data:

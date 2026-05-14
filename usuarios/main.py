@@ -1,4 +1,4 @@
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Body
 from usuarios.DTO.dto import LoginRequest
 from dotenv import load_dotenv
 import os
@@ -65,7 +65,7 @@ async def get_users(page: int = Query(1, ge=1),
     """
     try:
         payload = {"page": page, "page_size": page_size}
-        result = await broker.rpc_request("companies.get_all", payload)
+        result = await broker.rpc_request("users.get_all", payload)
         return result
     except Exception as e:
         print("❌ Error en /users:", e)
@@ -138,59 +138,33 @@ async def get_ai_response(prompt: str):
         raise HTTPException(status_code=500, detail=str(e))
 
 
-@app.post("/aiimage")
-async def get_ai_image(
-    prompt: str = Form(...),
-    image: UploadFile = File(None)  # Opcional: para subir una imagen de referencia
+@app.post("/aitext")
+async def get_ai_text(
+    prompt: str = Body(..., embed=True)
 ):
     """
-    Obtiene una imagen del telefono o desde la PC y la procesa la IA.
+    Genera texto plano a partir de un prompt usando IA (Gemini).
     """
     try:
         payload = {"prompt": prompt}
         
-        # Si se subió una imagen, procesarla
-        if image:
-            # Guardar la imagen temporalmente
-            image_path = f"temp_{image.filename}"
-            with open(image_path, "wb") as buffer:
-                content = await image.read()
-                buffer.write(content)
-            
-            # Agregar la ruta de la imagen al payload
-            payload["image_path"] = image_path
-        
-        # Llamar al servicio RPC
-        result = await broker.rpc_request("ai.get_image", payload)
-        
-        # Limpiar archivo temporal si existe
-        if image and os.path.exists(image_path):
-            os.remove(image_path)
+        # Cambiamos el nombre del evento a algo más lógico: "ai.get_text"
+        result = await broker.rpc_request("ai.get_text", payload)
         
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("message"))
         
-        # Devolver la imagen generada
-        if result.get("image_path"):
-            return FileResponse(
-                result["image_path"], 
-                media_type="image/png",
-                filename="generated_image.png"
-            )
-        elif result.get("image_base64"):
-            # Si tienes la imagen en base64, puedes devolverla así
+        # Devolver el texto generado por Gemini
+        if result.get("text"):
             return {
                 "success": True,
-                "image_base64": result["image_base64"],
-                "message": result.get("message", "Image generated successfully")
+                "text": result["text"],
+                "message": result.get("message", "Text generated successfully")
             }
         else:
-            return {"success": True, "message": result.get("message")}
+            return {"success": True, "message": result.get("message", "No text received")}
     
     except HTTPException:
         raise
     except Exception as e:
-        # Limpiar archivo temporal en caso de error
-        if image and 'image_path' in locals() and os.path.exists(image_path):
-            os.remove(image_path)
         raise HTTPException(status_code=500, detail=str(e))

@@ -6,10 +6,11 @@ import enum
 
 
 class VehicleStatus(str, enum.Enum):
-    AVAILABLE = "available"
-    RENTED = "rented"
-    MAINTENANCE = "maintenance"
-    INACTIVE = "inactive"
+    AVAILABLE = "AVAILABLE"
+    RENTED = "RENTED"
+    RESERVED = "RESERVED"
+    MAINTENANCE = "MAINTENANCE"
+    INACTIVE = "INACTIVE"
 
 
 class RentalStatus(str, enum.Enum):

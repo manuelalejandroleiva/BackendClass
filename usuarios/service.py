@@ -1,13 +1,14 @@
 import json
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
-from .connection.database import engine
+from .connection.database import engine, SessionLocal
 from .models.models import User
 from common.rabbitmq import message_pattern
 import bcrypt
 from datetime import datetime, timedelta,timezone
 from .schema import UserCreateDTO
 from jose import jwt
+import base64
 
 import os 
 from dotenv import load_dotenv
@@ -42,20 +43,23 @@ async def get_user_by_email(db: AsyncSession, email: str):
     result = await db.execute(select(User).where(User.email == email))
     return result.scalar_one_or_none()
 
-ACCESS_TOKEN_EXPIRE_HOURS = 1
+ACCESS_TOKEN_EXPIRE_HOURS = 24
 REFRESH_TOKEN_EXPIRE_DAYS = 7
 
 @message_pattern("auth.login")
 async def handle_login(payload):
-    async with AsyncSession(engine) as db:
+    async with SessionLocal() as db:
         try:
             email = payload.get("email")
             password = payload.get("password")
+            print(f"DEBUG LOGIN: email recibido={repr(email)}, password={repr(password)}")
 
             if not email or not password:
                 return {"success": False, "message": "Email y contraseña son requeridos."}
 
+            email = email.strip()
             user = await get_user_by_email(db, email)
+            print(f"DEBUG LOGIN: user encontrado={user.id if user else None}")
             if not user:
                 return {"success": False, "message": "Usuario no encontrado."}
 
@@ -116,7 +120,7 @@ async def handle_get_all(payload):
     page = payload.get("page", 1)
     page_size = payload.get("page_size", 10)
 
-    async with AsyncSession(engine) as session:
+    async with SessionLocal() as session:
         users, total = await get_all(session, page, page_size)
 
         data = [
@@ -140,7 +144,7 @@ async def handle_get_all(payload):
 
 @message_pattern("users.create")
 async def handle_create_user(payload):
-    async with AsyncSession(engine) as db:
+    async with SessionLocal() as db:
         try:
             # ⚡ Payload debe ser dict
             if isinstance(payload, str):
@@ -180,7 +184,7 @@ async def handle_create_user(payload):
 # ✅ handler RabbitMQ
 @message_pattern("users.get_by_id")
 async def handle_get_by_id(payload):
-    async with AsyncSession(engine) as db:
+    async with SessionLocal() as db:
         try:
             user_id = payload.get("id")
             if user_id is None:
@@ -203,7 +207,7 @@ async def handle_get_by_id(payload):
 
 @message_pattern("users.delete")
 async def handle_delete_user(payload):
-    async with AsyncSession(engine) as db:
+    async with SessionLocal() as db:
         try:
             user_id = payload.get("id")
             if user_id is None:
@@ -223,7 +227,7 @@ async def handle_delete_user(payload):
 
 @message_pattern("users.update")
 async def handle_update_user(payload):
-    async with AsyncSession(engine) as db:
+    async with SessionLocal() as db:
         try:
             user_id = payload.get("id")
             if user_id is None:
@@ -286,48 +290,25 @@ async def handle_airequest(payload):
 
 
 
-@message_pattern("ai.get_image")
-async def handle_aiimagerequest(payload):
+@message_pattern("ai.get_text")
+async def handle_aitextrequest(payload):
+    client = genai.Client()
+
     try:
-        print(payload)
-        payload_work=payload.get("prompt", "").strip()
+        prompt = payload.get("prompt", "").strip()
         
-        model = "gemini-2.5-flash-image"
-        contents = [
-            types.Content(
-                role="user",
-                parts=[
-                    types.Part.from_text(text="""INSERT_INPUT_HERE"""),
-                ],
-            ),
-        ]
-        generate_content_config = types.GenerateContentConfig(
-            response_modalities=[
-                "IMAGE",
-                "TEXT",
-            ],
-            image_config=types.ImageConfig(
-                image_size="1K",
+        response = client.models.generate_content(
+            model="gemini-3.1-pro-preview",
+            contents="How does AI work?",
+            config=types.GenerateContentConfig(
+                thinking_config=types.ThinkingConfig(thinking_level="pro")
             ),
         )
-
-        file_index = 0
-        for chunk in client.models.generate_content_stream(
-            model=model,
-            contents=contents,
-            config=generate_content_config,
-        ):
-            for modality in chunk.response_modalities:
-                if modality.type == types.ModalityType.IMAGE:
-                    for image in modality.images:
-                        image_data = image.image_bytes
-                        image_filename = f"generated_image_{file_index}.png"
-                        with open(image_filename, "wb") as img_file:
-                            img_file.write(image_data)
-                        file_index += 1
-                        return {
-                            "success": True,
-                            "image_filename": image_filename
-                        }
+        
+        return {
+            "success": True,
+            "message": "Response generated successfully",
+            "text": response.text
+        }
     except Exception as e:
-        return {"success": False, "message": f"Error: {str(e)}"}
+        return {"success": False, "message": f"Error interno en IA: {str(e)}"}

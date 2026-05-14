@@ -115,10 +115,10 @@ async def get_ai_response(
 
 @protected_router.post("/ai/image")
 async def get_ai_image(
-    prompt: str = Body(...),
+    prompt: str = Body(..., embed=True),
     authorization: Optional[str] = Depends(get_token)
 ):
-    return await proxy_request("POST", f"{USER_SERVICE_URL}/aiimage", authorization, json={"prompt": prompt})
+    return await proxy_request("POST", f"{USER_SERVICE_URL}/aitext", authorization, json={"prompt": prompt})
 
 # ===================== BUSINESS =====================
 @protected_router.post("/business")
@@ -127,15 +127,15 @@ async def create_business(data: BuisnessCreate, authorization: Optional[str] = D
 
 @protected_router.get("/business")
 async def get_businesses(
-    skip: int = Query(0, ge=0),
-    limit: int = Query(10, ge=1, le=100),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(10, ge=1, le=100),
     authorization: Optional[str] = Depends(get_token)
 ):
-    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/buisness_get", authorization, params={"skip": skip, "limit": limit})
+    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/buisness", authorization, params={"page": page, "page_size": page_size})
 
 @protected_router.get("/business/{business_id}")
 async def get_business_by_id(business_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/buisness_id/{business_id}", authorization)
+    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/buisness_id", authorization, params={"buisness_id": business_id})
 
 @protected_router.put("/business/{business_id}")
 async def update_business(
@@ -151,7 +151,7 @@ async def delete_business(business_id: int, authorization: Optional[str] = Depen
 
 @protected_router.get("/business/{business_id}/products")
 async def get_business_products(business_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/productos/{business_id}", authorization)
+    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/productos", authorization, params={"business_id": business_id})
 
 # ===================== INVENTORY/SALES =====================
 @protected_router.post("/sales")
@@ -208,16 +208,30 @@ async def create_table(data: TableCreate, authorization: Optional[str] = Depends
     return await proxy_request("POST", f"{ORDERS_SERVICE_URL}/tables", authorization, json=data.dict())
 
 @protected_router.get("/tables/{business_id}")
-async def get_tables(business_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("GET", f"{ORDERS_SERVICE_URL}/tables/{business_id}", authorization)
+async def get_tables(
+    business_id: int,
+    available_only: bool = Query(False),
+    authorization: Optional[str] = Depends(get_token)
+):
+    return await proxy_request("GET", f"{ORDERS_SERVICE_URL}/tables/{business_id}", authorization, params={"available_only": available_only})
 
 @protected_router.post("/orders")
 async def create_order(data: OrderCreate, authorization: Optional[str] = Depends(get_token)):
     return await proxy_request("POST", f"{ORDERS_SERVICE_URL}/orders", authorization, json=data.dict())
 
 @protected_router.get("/orders/{business_id}")
-async def get_orders(business_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("GET", f"{ORDERS_SERVICE_URL}/orders/{business_id}", authorization)
+async def get_orders(
+    business_id: int,
+    table_id: Optional[int] = Query(None),
+    status: Optional[str] = Query(None),
+    authorization: Optional[str] = Depends(get_token)
+):
+    params = {}
+    if table_id:
+        params["table_id"] = table_id
+    if status:
+        params["status"] = status
+    return await proxy_request("GET", f"{ORDERS_SERVICE_URL}/orders/{business_id}", authorization, params=params)
 
 @protected_router.get("/orders/detail/{order_id}")
 async def get_order_detail(order_id: int, authorization: Optional[str] = Depends(get_token)):
@@ -526,8 +540,7 @@ async def mark_alert_read(
         return response.json()
 
 
-# ============== REALTIME / WEBSOCKET ==============
-
+# ===================== REALTIME =====================
 @protected_router.get("/realtime/health")
 async def realtime_health(authorization: Optional[str] = Depends(get_token)):
     async with httpx.AsyncClient() as client:
@@ -536,125 +549,6 @@ async def realtime_health(authorization: Optional[str] = Depends(get_token)):
             return response.json()
         except Exception as e:
             raise HTTPException(status_code=503, detail=f"Realtime service unavailable: {e}")
-
-@protected_router.get("/vehicles/{vehicle_id}")
-async def get_vehicle(vehicle_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("GET", f"{RENTS_SERVICE_URL}/vehicles/{vehicle_id}", authorization)
-
-@protected_router.put("/vehicles/{vehicle_id}")
-async def update_vehicle(
-    vehicle_id: int,
-    vehicle: VehicleUpdate,
-    authorization: Optional[str] = Depends(get_token)
-):
-    return await proxy_request("PUT", f"{RENTS_SERVICE_URL}/vehicles/{vehicle_id}", authorization, json=vehicle.dict(exclude_unset=True))
-
-@protected_router.delete("/vehicles/{vehicle_id}")
-async def delete_vehicle(vehicle_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("DELETE", f"{RENTS_SERVICE_URL}/vehicles/{vehicle_id}", authorization)
-
-# ===================== TRACKING =====================
-@protected_router.post("/tracking/update")
-async def update_tracking(data: TrackingUpdate, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("POST", f"{RENTS_SERVICE_URL}/tracking/update", authorization, json=data.dict())
-
-@protected_router.get("/tracking/{vehicle_id}/current")
-async def get_current_location(vehicle_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("GET", f"{RENTS_SERVICE_URL}/tracking/{vehicle_id}/current", authorization)
-
-@protected_router.get("/tracking/{vehicle_id}/history")
-async def get_tracking_history(
-    vehicle_id: int,
-    start_date: Optional[str] = Query(None),
-    end_date: Optional[str] = Query(None),
-    limit: int = Query(100, ge=1, le=1000),
-    authorization: Optional[str] = Depends(get_token)
-):
-    params = {"limit": limit}
-    if start_date:
-        params["start_date"] = start_date
-    if end_date:
-        params["end_date"] = end_date
-    return await proxy_request("GET", f"{RENTS_SERVICE_URL}/tracking/{vehicle_id}/history", authorization, params=params)
-
-# ===================== RENTALS =====================
-@protected_router.post("/rentals")
-async def create_rental(data: RentalCreate, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("POST", f"{RENTS_SERVICE_URL}/rentals", authorization, json=data.dict())
-
-@protected_router.post("/rentals/{rental_id}/complete")
-async def complete_rental(
-    rental_id: int,
-    end_latitude: Optional[float] = Body(None),
-    end_longitude: Optional[float] = Body(None),
-    rate_per_hour: Optional[float] = Body(10.0),
-    authorization: Optional[str] = Depends(get_token)
-):
-    payload = {"rental_id": rental_id}
-    if end_latitude is not None:
-        payload["end_latitude"] = end_latitude
-    if end_longitude is not None:
-        payload["end_longitude"] = end_longitude
-    if rate_per_hour is not None:
-        payload["rate_per_hour"] = rate_per_hour
-    return await proxy_request("POST", f"{RENTS_SERVICE_URL}/rentals/{rental_id}/complete", authorization, json=payload)
-
-@protected_router.get("/rentals")
-async def get_rentals(
-    status: Optional[str] = Query(None),
-    user_id: Optional[int] = Query(None),
-    vehicle_id: Optional[int] = Query(None),
-    authorization: Optional[str] = Depends(get_token)
-):
-    params = {}
-    if status:
-        params["status"] = status
-    if user_id:
-        params["user_id"] = user_id
-    if vehicle_id:
-        params["vehicle_id"] = vehicle_id
-    return await proxy_request("GET", f"{RENTS_SERVICE_URL}/rentals", authorization, params=params)
-
-# ===================== GEOFENCES =====================
-@protected_router.post("/geofences")
-async def create_geofence(data: GeofenceCreate, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("POST", f"{RENTS_SERVICE_URL}/geofences", authorization, json=data.dict())
-
-@protected_router.get("/geofences")
-async def get_geofences(
-    vehicle_id: Optional[int] = Query(None),
-    authorization: Optional[str] = Depends(get_token)
-):
-    params = {"vehicle_id": vehicle_id} if vehicle_id else {}
-    return await proxy_request("GET", f"{RENTS_SERVICE_URL}/geofences", authorization, params=params)
-
-@protected_router.delete("/geofences/{geofence_id}")
-async def delete_geofence(geofence_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("DELETE", f"{RENTS_SERVICE_URL}/geofences/{geofence_id}", authorization)
-
-# ===================== ALERTS =====================
-@protected_router.get("/alerts")
-async def get_alerts(
-    vehicle_id: Optional[int] = Query(None),
-    is_read: Optional[bool] = Query(None),
-    limit: int = Query(50, ge=1, le=100),
-    authorization: Optional[str] = Depends(get_token)
-):
-    params = {"limit": limit}
-    if vehicle_id:
-        params["vehicle_id"] = vehicle_id
-    if is_read is not None:
-        params["is_read"] = is_read
-    return await proxy_request("GET", f"{RENTS_SERVICE_URL}/alerts", authorization, params=params)
-
-@protected_router.post("/alerts/{alert_id}/read")
-async def mark_alert_read(alert_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("POST", f"{RENTS_SERVICE_URL}/alerts/{alert_id}/read", authorization)
-
-# ===================== REALTIME =====================
-@protected_router.get("/realtime/health")
-async def realtime_health():
-    return await proxy_request("GET", f"{REALTIME_SERVICE_URL}/health")
 
 # ===================== REGISTER ROUTERS =====================
 app.include_router(public_router, prefix="/api")

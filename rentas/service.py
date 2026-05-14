@@ -127,13 +127,21 @@ async def handle_get_all_vehicles(payload):
     async with AsyncSession(engine) as db:
         try:
             status_filter = payload.get("status")
+            
+            # Validar que el status sea válido (case-insensitive)
+            if status_filter:
+                status_filter_upper = status_filter.upper()
+                if status_filter_upper not in [s.value for s in VehicleStatus]:
+                    return {"success": False, "message": "Estado no encontrado"}
+                status_filter = status_filter_upper
+            
             query = select(Vehicle)
             if status_filter:
                 query = query.where(Vehicle.status == status_filter)
-
+            
             result = await db.execute(query)
             vehicles = result.scalars().all()
-
+            
             data = [{
                 "id": v.id,
                 "plate": v.plate,
@@ -148,10 +156,13 @@ async def handle_get_all_vehicles(payload):
                 "battery_level": v.battery_level,
                 "last_update": v.last_update.isoformat() if v.last_update else None
             } for v in vehicles]
-
+            
             return {"success": True, "data": data}
-
+        
         except Exception as e:
+            error_msg = str(e)
+            if "InvalidTextRepresentationError" in error_msg or "invalid input value for enum" in error_msg:
+                return {"success": False, "message": "Estado no encontrado"}
             return {"success": False, "message": str(e)}
 
 
@@ -198,27 +209,34 @@ async def handle_update_vehicle(payload):
             vehicle_id = payload.get("id")
             if not vehicle_id:
                 return {"success": False, "message": "Falta el ID del vehículo"}
-
+            
             vehicle = await db.get(Vehicle, int(vehicle_id))
             if not vehicle:
                 return {"success": False, "message": "Vehículo no encontrado"}
-
+            
             update_fields = ["plate", "brand", "model", "year", "color", "vin", "device_id", "status"]
             for field in update_fields:
                 if field in payload:
                     if field == "status":
-                        setattr(vehicle, field, VehicleStatus(payload[field]))
+                        # Validar que el status sea válido (case-insensitive)
+                        status_upper = payload[field].upper()
+                        if status_upper not in [s.value for s in VehicleStatus]:
+                            return {"success": False, "message": "Estado no encontrado"}
+                        setattr(vehicle, field, VehicleStatus(status_upper))
                     else:
                         setattr(vehicle, field, payload[field])
-
+            
             vehicle.updated_at = datetime.utcnow()
             db.add(vehicle)
             await db.commit()
             await db.refresh(vehicle)
-
+            
             return {"success": True, "data": {"id": vehicle.id, "plate": vehicle.plate, "status": vehicle.status.value}}
-
+        
         except Exception as e:
+            error_msg = str(e)
+            if "InvalidTextRepresentationError" in error_msg or "invalid input value for enum" in error_msg:
+                return {"success": False, "message": "Estado no encontrado"}
             await db.rollback()
             return {"success": False, "message": str(e)}
 

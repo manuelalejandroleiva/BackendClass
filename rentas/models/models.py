@@ -6,10 +6,11 @@ import enum
 
 
 class VehicleStatus(str, enum.Enum):
-    AVAILABLE = "available"
-    RENTED = "rented"
-    MAINTENANCE = "maintenance"
-    INACTIVE = "inactive"
+    AVAILABLE = "AVAILABLE"
+    RENTED = "RENTED"
+    RESERVED = "RESERVED"
+    MAINTENANCE = "MAINTENANCE"
+    INACTIVE = "INACTIVE"
 
 
 class RentalStatus(str, enum.Enum):
@@ -72,7 +73,7 @@ class Rental(Base):
 
     id = Column(Integer, primary_key=True, index=True)
     vehicle_id = Column(Integer, ForeignKey("vehicles.id"), nullable=False, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    user_id = Column(Integer, nullable=False, index=True)
     start_latitude = Column(Float, nullable=False)
     start_longitude = Column(Float, nullable=False)
     end_latitude = Column(Float)
