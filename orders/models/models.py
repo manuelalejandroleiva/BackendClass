@@ -9,6 +9,7 @@ class Tables(Base):
     buisness_id = Column(Integer, index=True)
     status = Column(String, index=True, nullable=True)
     location = Column(String, index=True, nullable=True)
+    tipo_id = Column(Integer, nullable=True)
 
 class Product(Base):
     __tablename__ = "Product"

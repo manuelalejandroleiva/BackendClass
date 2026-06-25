@@ -68,6 +68,15 @@ async def request_location(sid, data):
     return {"success": True, "message": "Solicitud enviada"}
 
 
+@sio.event
+async def join_business(sid, data):
+    business_id = data.get("business_id")
+    if business_id:
+        await sio.enter_room(sid, f"business_{business_id}")
+    return {"success": True}
+
+
+
 # ============== Emit Functions ==============
 
 async def emit_reservation_created(rental_id: int, vehicle_id: int, user_id: int, status: str = "pending"):
@@ -146,6 +155,17 @@ async def emit_notification(user_id: int, title: str, body: str, data: Dict = No
         "data": data or {},
         "timestamp": datetime.utcnow().isoformat()
     }, room=f"user_{user_id}")
+
+
+async def emit_business_event(event_type: str, entity_type: str, data: dict, business_id: int):
+    event_data = {
+        "event_type": event_type,
+        "entity_type": entity_type,
+        "data": data,
+        "business_id": business_id,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    await sio.emit("business_event", event_data, room=f"business_{business_id}")
 
 
 # ============== FastAPI Routes ==============
@@ -238,6 +258,18 @@ async def internal_notification(request: Request):
         data.get("title"),
         data.get("body"),
         data.get("data")
+    )
+    return JSONResponse({"success": True})
+
+
+@sio_app.post("/internal/emit_business_event")
+async def internal_business_event(request: Request):
+    data = await request.json()
+    await emit_business_event(
+        data.get("event_type", "created"),
+        data.get("entity_type"),
+        data.get("data", {}),
+        data.get("business_id")
     )
     return JSONResponse({"success": True})
 

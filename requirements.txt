@@ -65,7 +65,9 @@ PyJWT==2.10.1
 pyparsing==3.2.5
 python-dateutil==2.9.0.post0
 python-dotenv==1.1.1
+python-engineio[asyncio]==4.8.0
 python-http-client==3.3.7
+python-socketio[asyncio]==5.11.1
 python-jose==3.5.0
 python-multipart==0.0.20
 requests==2.32.5
