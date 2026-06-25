@@ -13,6 +13,7 @@ services:
       - inventory-service
       - orders-service
       - rents-service
+      - landlord-service
     volumes:
       - ./gateways.py:/app/gateways.py
       - ./common:/app/common
@@ -146,6 +147,25 @@ services:
       - rabbitmq
     volumes:
       - ./rentas:/app/rentas
+      - ./common:/app/common
+    networks:
+      - backend-network
+
+  landlord-service:
+    build:
+      context: .
+      dockerfile: ./landlord/Dockerfile
+    container_name: backend_landlord_service
+    restart: always
+    env_file:
+      - .env
+    ports:
+      - "8006:8006"
+    depends_on:
+      - postgres
+      - rabbitmq
+    volumes:
+      - ./landlord:/app/landlord
       - ./common:/app/common
     networks:
       - backend-network

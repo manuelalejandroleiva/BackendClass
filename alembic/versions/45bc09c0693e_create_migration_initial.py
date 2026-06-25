@@ -50,9 +50,9 @@ def upgrade() -> None:
     )
     op.create_index(op.f('ix_buisness_address'), 'buisness', ['address'], unique=False)
     op.create_index(op.f('ix_buisness_capital_money'), 'buisness', ['capital_money'], unique=False)
-    op.create_index(op.f('ix_buisness_email'), 'buisness', ['email'], unique=True)
+    op.create_index(op.f('ix_buisness_email'), 'buisness', ['email'], unique=False)
     op.create_index(op.f('ix_buisness_id'), 'buisness', ['id'], unique=False)
-    op.create_index(op.f('ix_buisness_name'), 'buisness', ['name'], unique=True)
+    op.create_index(op.f('ix_buisness_name'), 'buisness', ['name'], unique=False)
     op.create_index(op.f('ix_buisness_phone'), 'buisness', ['phone'], unique=False)
     op.create_index(op.f('ix_buisness_user_id'), 'buisness', ['user_id'], unique=False)
     op.create_table('users',

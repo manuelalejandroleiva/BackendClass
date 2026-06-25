@@ -81,10 +81,7 @@ async def handle_login(payload):
             db.add(user)
             await db.commit()
 
-            user_data = {
-                k: v for k, v in user.__dict__.items()
-                if k not in ("_sa_instance_state", "password")
-            }
+            user_data = user.to_dict(exclude={"password"})
 
             return {
                 "success": True,
@@ -124,7 +121,7 @@ async def handle_get_all(payload):
         users, total = await get_all(session, page, page_size)
 
         data = [
-            {k: v for k, v in u.__dict__.items() if k not in ("_sa_instance_state","password") }
+            u.to_dict(exclude={"password"})
             for u in users
         ]
 
@@ -173,7 +170,7 @@ async def handle_create_user(payload):
             await db.refresh(new_user)
 
             # ⚠ Excluir password en la respuesta
-            response = {k: v for k, v in new_user.__dict__.items() if k not in ("_sa_instance_state", "password")}
+            response = new_user.to_dict(exclude={"password"})
 
             return {"success": True, "data": response}
 
@@ -194,10 +191,7 @@ async def handle_get_by_id(payload):
             if not user:
                 return {"success": False, "message": "Usuario no encontrado."}
 
-            user_data = {
-                k: v for k, v in user.__dict__.items()
-                if k not in ("_sa_instance_state", "password")
-            }
+            user_data = user.to_dict(exclude={"password"})
 
             return {"success": True, "data": user_data}
 
@@ -252,7 +246,7 @@ async def handle_update_user(payload):
             await db.commit()
             await db.refresh(user)
 
-            user_response = {k: v for k, v in user.__dict__.items() if k not in ("_sa_instance_state", "password")}
+            user_response = user.to_dict(exclude={"password"})
 
             return {"success": True, "data": user_response}
 

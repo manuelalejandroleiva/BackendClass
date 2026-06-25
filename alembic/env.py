@@ -13,8 +13,12 @@ from alembic import context
 # Import Base and models for autogenerate
 from common.database import Base
 from common.models import (
-    Role, User, Category, Buisness, Tables, Product, Sale, Order, OrderItem
+    Role, User, Category, Buisness, Tables, Product, Sale,
+    Order, OrderItem, MenuItem, MonthlyClosing, TipoMesa,
+    LegacyOrder, LegacyOrderItem
 )
+from rentas.models.models import Vehicle, GPSLocation, Rental, Geofence, GeofenceAlert
+from landlord.models.models import Property, Tenant, Payment
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.
