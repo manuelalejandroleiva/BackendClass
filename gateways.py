@@ -16,7 +16,8 @@ from buisness.schema import (
     TableCreate, TableStatusUpdate, TableUpdate,
     MenuItemCreate, MenuItemUpdate,
     OrderCreate, OrderItemCreate, OrderStatusUpdate, OrderUpdate,
-    MonthlyClosingCreate
+    MonthlyClosingCreate,
+    ProductCreate
 )
 from inventory.schema import SaleCreate as InventorySaleCreate
 from landlord.schema import (
@@ -82,7 +83,8 @@ async def proxy_request(method: str, url: str, authorization: str = None, json: 
 # ===================== PUBLIC =====================
 @public_router.post("/login")
 async def login(login_data: LoginRequest = Body(...)):
-    return await proxy_request("POST", f"{USER_SERVICE_URL}/auth/login", json=login_data.dict())
+    print(login_data.dict())
+    return await proxy_request("POST", f"{USER_SERVICE_URL}/login", json=login_data.dict())
 
 # ===================== USERS =====================
 @protected_router.get("/users")
@@ -137,6 +139,16 @@ async def get_business_types():
     return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/business-types")
 
 
+@protected_router.get("/categories")
+async def get_categories(authorization: Optional[str] = Depends(get_token)):
+    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/categories", authorization)
+
+
+@protected_router.post("/categories")
+async def create_category(category: dict = Body(...), authorization: Optional[str] = Depends(get_token)):
+    return await proxy_request("POST", f"{BUSINESS_SERVICE_URL}/categories", authorization, json=category)
+
+
 # ===================== BUSINESS =====================
 @protected_router.post("/business")
 async def create_business(data: BuisnessCreate, authorization: Optional[str] = Depends(get_token)):
@@ -168,8 +180,23 @@ async def delete_business(business_id: int, authorization: Optional[str] = Depen
     return await proxy_request("DELETE", f"{BUSINESS_SERVICE_URL}/buisness/{business_id}", authorization)
 
 @protected_router.get("/business/{business_id}/products")
-async def get_business_products(business_id: int, authorization: Optional[str] = Depends(get_token)):
-    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/productos", authorization, params={"business_id": business_id})
+async def get_business_products(
+    business_id: int,
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=100),
+    authorization: Optional[str] = Depends(get_token)
+):
+    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/products/{business_id}", authorization, params={"page": page, "page_size": page_size})
+
+@protected_router.get("/products/{product_id}")
+async def get_product(product_id: int, authorization: Optional[str] = Depends(get_token)):
+    return await proxy_request("GET", f"{BUSINESS_SERVICE_URL}/product/{product_id}", authorization)
+
+@protected_router.post("/products/{buisness_id}")
+async def create_product(buisness_id: int, data: ProductCreate, authorization: Optional[str] = Depends(get_token)):
+    payload = data.dict()
+    payload["buisness_id"] = buisness_id
+    return await proxy_request("POST", f"{BUSINESS_SERVICE_URL}/products/{buisness_id}", authorization, json=payload)
 
 # ===================== TABLES =====================
 @protected_router.post("/tables")
@@ -395,10 +422,10 @@ async def get_sales_summary(
 @protected_router.patch("/products/{product_id}/stock")
 async def update_product_stock(
     product_id: int,
-    stock: int = Body(...),
+    quantity: int = Body(...),
     authorization: Optional[str] = Depends(get_token)
 ):
-    return await proxy_request("PATCH", f"{INVENTORY_SERVICE_URL}/products/{product_id}/stock", authorization, json={"stock": stock})
+    return await proxy_request("PATCH", f"{INVENTORY_SERVICE_URL}/products/{product_id}/stock", authorization, json={"quantity": quantity})
 
 @protected_router.patch("/products/{product_id}")
 async def update_product(
@@ -406,7 +433,14 @@ async def update_product(
     data: dict = Body(...),
     authorization: Optional[str] = Depends(get_token)
 ):
-    return await proxy_request("PATCH", f"{INVENTORY_SERVICE_URL}/products/{product_id}", authorization, json=data)
+    return await proxy_request("PATCH", f"{BUSINESS_SERVICE_URL}/products/{product_id}", authorization, json=data)
+
+@protected_router.delete("/products/{product_id}")
+async def delete_product(
+    product_id: int,
+    authorization: Optional[str] = Depends(get_token)
+):
+    return await proxy_request("DELETE", f"{BUSINESS_SERVICE_URL}/products/{product_id}", authorization)
 
 
 # ============== LANDLORD / PROPERTIES ==============

@@ -14,7 +14,7 @@ from alembic import context
 from common.database import Base
 from common.models import (
     Role, User, Category, Buisness, Tables, Product, Sale,
-    Order, OrderItem, MenuItem, MonthlyClosing, TipoMesa,
+    Order, OrderItem, MenuItem, MonthlyClosing, TipoMesa, TipoProducto,
     LegacyOrder, LegacyOrderItem
 )
 from rentas.models.models import Vehicle, GPSLocation, Rental, Geofence, GeofenceAlert

@@ -9,6 +9,12 @@ class TipoMesa(Base):
     nombre = Column(String, unique=True, index=True)
 
 
+class TipoProducto(Base):
+    __tablename__ = "tipo_producto"
+    id = Column(Integer, primary_key=True, index=True)
+    nombre = Column(String, unique=True, index=True)
+
+
 class Category(Base):
     __tablename__ = "category"
     id = Column(Integer, primary_key=True, index=True)
@@ -53,10 +59,19 @@ class Tables(Base):
 class Product(Base):
     __tablename__ = "Product"
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, index=True)
+    name = Column(String, index=True)
+    sku = Column(String, nullable=True, index=True)
+    description = Column(String, nullable=True)
+    category_id = Column(Integer, ForeignKey("category.id"), nullable=True, index=True)
+    category = relationship("Category")
+    tipo_id = Column(Integer, ForeignKey("tipo_producto.id"), nullable=True, index=True)
+    tipo = relationship("TipoProducto")
     price = Column(Integer, index=True)
-    sold = Column(Integer, index=True)
-    stock = Column(Integer, index=True)
+    cost = Column(Integer, nullable=True, default=0)
+    sold = Column(Integer, index=True, default=0)
+    stock = Column(Integer, index=True, default=0)
+    min_stock = Column(Integer, nullable=True, default=0)
+    pz = Column(Integer, nullable=True, default=1)
     buisness_id = Column(Integer, index=True)
 
 

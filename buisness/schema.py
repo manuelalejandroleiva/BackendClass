@@ -2,6 +2,36 @@ from pydantic import BaseModel, Field, EmailStr
 from typing import Optional, List
 
 
+class CategoryCreate(BaseModel):
+    name: str
+
+
+class ProductCreate(BaseModel):
+    product_name: str
+    sku: Optional[str] = None
+    description: Optional[str] = None
+    category_id: Optional[int] = None
+    tipo_id: Optional[int] = None
+    sales_price: int
+    cost: Optional[int] = 0
+    initial_stock: int = 0
+    min_stock: Optional[int] = None
+    pz: Optional[int] = 1
+
+
+class ProductUpdate(BaseModel):
+    name: Optional[str] = None
+    sku: Optional[str] = None
+    description: Optional[str] = None
+    category_id: Optional[int] = None
+    tipo_id: Optional[int] = None
+    price: Optional[int] = None
+    cost: Optional[int] = None
+    stock: Optional[int] = None
+    min_stock: Optional[int] = None 
+    pz: Optional[int] = None
+
+
 class BuisnessBase(BaseModel):
     name: Optional[str] = Field(None, min_length=2, max_length=100)
     capital_money: Optional[int] = Field(None, ge=0)

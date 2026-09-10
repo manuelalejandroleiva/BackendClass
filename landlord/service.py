@@ -391,9 +391,6 @@ async def handle_get_all_payments(payload):
     async with AsyncSession(engine) as db:
         try:
             tenant_id = payload.get("tenant_id")
-            month = payload.get("month")
-            year = payload.get("year")
-
             query = select(Payment)
             if tenant_id:
                 query = query.where(Payment.tenant_id == int(tenant_id))
