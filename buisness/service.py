@@ -3,17 +3,19 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 from datetime import datetime
 import json
+import stripe
 
-from .schema import BuisnessCreate, LicenciaCreate, BuisnessUpdate
+from .schema import BuisnessCreate, LicenciaCreate, BuisnessUpdate, ProductCreate, ProductUpdate, CategoryCreate
 from .schema import TableCreate, TableStatusUpdate, TableUpdate
 from .schema import MenuItemCreate, MenuItemUpdate
 from .schema import OrderCreate, OrderItemCreate, OrderStatusUpdate, OrderUpdate
 from .schema import SaleCreate, MonthlyClosingCreate
-from .models.models import Buisness, Product, Tables, Sale, Category
+from .models.models import Buisness, Product, Tables, Sale, Category, TipoProducto
 from .models.models import MenuItem, Order, OrderItem, MonthlyClosing
 from .connection.database import engine
 from common.rabbitmq import message_pattern
 from sqlalchemy.orm import Session, selectinload
+from sqlalchemy import func
 
 
 @message_pattern("buisness.create")
@@ -39,54 +41,58 @@ async def handle_create_buisness(payload):
 
 @message_pattern("buisness.get_all")
 async def handle_get_all_buisness(payload):
-    page = payload.get("page", 1)
-    page_size = payload.get("page_size", 10)
-    user_id = payload.get("user_id")
-    
     async with AsyncSession(engine) as session:
-        offset = (page - 1) * page_size
-        
-        query = (
-            select(Buisness)
-            .options(
-                selectinload(Buisness.tables)
+        try:
+            page = payload.get("page", 1)
+            page_size = payload.get("page_size", 10)
+            user_id = payload.get("user_id")
+            
+            offset = (page - 1) * page_size
+            
+            query = (
+                select(Buisness)
+                .options(
+                    selectinload(Buisness.tables)
+                )
             )
-        )
-        count_query = select(Buisness.id)
-        
-        if user_id is not None:
-            query = query.where(Buisness.user_id == user_id)
-            count_query = count_query.where(Buisness.user_id == user_id)
+            count_query = select(Buisness.id)
             
-        query = query.offset(offset).limit(page_size)
-        
-        result = await session.execute(query)
-        buisness_list = result.scalars().all()
-        
-        total_result = await session.execute(count_query)
-        total = len(total_result.scalars().all())
-        
-        data = []
-        for b in buisness_list:
-            b_dict = b.to_dict()
+            if user_id is not None:
+                query = query.where(Buisness.user_id == user_id)
+                count_query = count_query.where(Buisness.user_id == user_id)
+                
+            query = query.offset(offset).limit(page_size)
             
-            if hasattr(b, 'tables') and b.tables is not None:
-                b_dict['tables'] = [
-                    t.to_dict()
-                    for t in b.tables
-                ]
-            else:
-                b_dict['tables'] = []
+            result = await session.execute(query)
+            buisness_list = result.scalars().all()
             
-            data.append(b_dict)
+            total_result = await session.execute(count_query)
+            total = len(total_result.scalars().all())
             
-        return {
-            "page": page,
-            "page_size": page_size,
-            "total": total,
-            "total_pages": (total + page_size - 1) // page_size,
-            "data": data
-        }
+            data = []
+            for b in buisness_list:
+                b_dict = b.to_dict()
+                
+                if hasattr(b, 'tables') and b.tables is not None:
+                    b_dict['tables'] = [
+                        t.to_dict()
+                        for t in b.tables
+                    ]
+                else:
+                    b_dict['tables'] = []
+                
+                data.append(b_dict)
+                
+            return {
+                "success": True,
+                "page": page,
+                "page_size": page_size,
+                "total": total,
+                "total_pages": (total + page_size - 1) // page_size,
+                "data": data
+            }
+        except Exception as e:
+            return {"success": False, "message": str(e)}
 
 
 @message_pattern("buisness.get_by_id")
@@ -164,6 +170,37 @@ async def handle_update_buisness(payload):
             return {"success": False, "message": str(e)}
 
 
+@message_pattern("buisness.category.create")
+async def handle_create_category(payload):
+    async with AsyncSession(engine) as db:
+        try:
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            data = CategoryCreate(**payload)
+            existing = await db.scalar(select(Category).where(Category.name == data.name))
+            if existing:
+                return {"success": False, "message": "Ya existe una categoría con ese nombre."}
+            new_category = Category(name=data.name)
+            db.add(new_category)
+            await db.commit()
+            await db.refresh(new_category)
+            return {"success": True, "data": new_category.to_dict()}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+
+@message_pattern("buisness.category.get_all")
+async def handle_get_all_categories(payload):
+    async with AsyncSession(engine) as session:
+        try:
+            result = await session.execute(select(Category))
+            categories = result.scalars().all()
+            data = [c.to_dict() for c in categories]
+            return {"success": True, "data": data}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+
 @message_pattern("buisness.product.get_all")
 async def handle_get_all_products(payload):
     page = payload.get("page", 1)
@@ -201,6 +238,7 @@ async def handle_get_products_by_business(payload):
                 .offset(offset)
                 .limit(page_size)
             )
+            
             products = result.scalars().all()
             total_result = await session.execute(
                 select(Product).where(Product.buisness_id == business_id)
@@ -218,6 +256,118 @@ async def handle_get_products_by_business(payload):
                 "page_size": page_size,
                 "total_pages": (total + page_size - 1) // page_size
             }
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+
+@message_pattern("buisness.product.create")
+async def handle_create_product(payload):
+    async with AsyncSession(engine) as db:
+        try:
+            if isinstance(payload, str):
+                payload = json.loads(payload)
+            buisness_id = payload.pop("buisness_id")
+            data = ProductCreate(**payload)
+            tipo_id = data.tipo_id
+            if tipo_id is None:
+                result = await db.execute(select(func.max(Product.tipo_id)))
+                max_tipo_id = result.scalar()
+                tipo_id = (max_tipo_id or 0) + 1
+                tipo_exists = await db.execute(
+                    select(TipoProducto).where(TipoProducto.id == tipo_id)
+                )
+                if not tipo_exists.scalar_one_or_none():
+                    db.add(TipoProducto(id=tipo_id, nombre=f"Tipo {tipo_id}"))
+            new_product = Product(
+                name=data.product_name,
+                sku=data.sku,
+                description=data.description,
+                category_id=data.category_id if data.category_id is not None else payload.get("category"),
+                tipo_id=tipo_id,
+                price=data.sales_price,
+                cost=data.cost,
+                stock=data.initial_stock,
+                min_stock=data.min_stock,
+                pz=data.pz,
+                sold=0,
+                buisness_id=buisness_id
+            )
+            db.add(new_product)
+            await db.commit()
+            await db.refresh(new_product)
+            return {
+                "success": True,
+                "data": new_product.to_dict()
+            }
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+
+@message_pattern("buisness.product.get_by_id")
+async def handle_get_product_by_id(payload):
+    product_id = payload.get("product_id")
+    if product_id is None:
+        return {"success": False, "message": "product_id is required"}
+    async with AsyncSession(engine) as session:
+        try:
+            result = await session.execute(
+                select(Product).where(Product.id == int(product_id))
+            )
+            product = result.scalar_one_or_none()
+            if not product:
+                return {"success": False, "message": "Product not found"}
+            return {"success": True, "data": product.to_dict()}
+        except Exception as e:
+            return {"success": False, "message": str(e)}
+
+
+@message_pattern("buisness.product.update")
+async def handle_update_product(payload):
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    product_id = payload.get("product_id")
+    if product_id is None:
+        return {"success": False, "message": "product_id is required"}
+    async with AsyncSession(engine) as session:
+        try:
+            result = await session.execute(
+                select(Product).where(Product.id == int(product_id))
+            )
+            product = result.scalar_one_or_none()
+            if not product:
+                return {"success": False, "message": "Product not found"}
+            update_data = ProductUpdate(**{k: v for k, v in payload.items() if k != "product_id"})
+            update_dict = update_data.dict(exclude_unset=True)
+            for key, value in update_dict.items():
+                setattr(product, key, value)
+            await session.commit()
+            await session.refresh(product)
+            return {"success": True, "data": product.to_dict()}
+        except Exception as e:
+            await session.rollback()
+            return {"success": False, "message": str(e)}
+
+
+@message_pattern("buisness.product.delete")
+async def handle_delete_product(payload):
+    async with AsyncSession(engine) as db:
+        try:
+            
+            product_id = payload.get("product_id")
+            if not product_id:
+                return {"success": False, "message": "product_id es requerido."}
+           
+            result = await db.execute(
+                select(Product).where(
+                    Product.id == int(product_id)
+                )
+            )
+            product = result.scalar_one_or_none()
+            if not product:
+                return {"success": False, "message": "Producto no encontrado o no pertenece a este negocio."}
+            await db.delete(product)
+            await db.commit()
+            return {"success": True, "message": "Producto eliminado correctamente."}
         except Exception as e:
             return {"success": False, "message": str(e)}
 
@@ -1079,7 +1229,7 @@ async def handle_create_payment_intent(payload):
             if order.total <= 0:
                 return {"success": False, "message": "El total debe ser mayor a cero."}
 
-            import stripe
+           
             stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
 
             existing_intent_id = order.stripe_payment_intent_id
@@ -1193,18 +1343,4 @@ async def handle_stripe_webhook(payload):
             return {"success": False, "message": str(e)}
 
 
-# ========== CATEGORIES / BUSINESS TYPES ==========
 
-@message_pattern("buisness.category.get_all")
-async def handle_get_all_categories(payload):
-    async with AsyncSession(engine) as db:
-        try:
-            result = await db.execute(select(Category))
-            categories = result.scalars().all()
-            data = [
-                c.to_dict()
-                for c in categories
-            ]
-            return {"success": True, "data": data}
-        except Exception as e:
-            return {"success": False, "message": str(e)}

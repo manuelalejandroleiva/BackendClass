@@ -13,7 +13,8 @@ from .schema import (
     TableCreate, TableStatusUpdate, TableUpdate,
     MenuItemCreate, MenuItemUpdate,
     OrderCreate, OrderStatusUpdate, OrderUpdate,
-    SaleCreate, MonthlyClosingCreate
+    SaleCreate, MonthlyClosingCreate,
+    ProductCreate, CategoryCreate
 )
 from typing import Optional
 from fastapi import Request
@@ -185,6 +186,94 @@ async def get_products_by_business(business_id: int,
         payload = {"business_id": business_id, "page": page, "page_size": page_size}
         result = await broker.rpc_request("buisness.product.get_by_business", payload)
         return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/product/{product_id}")
+async def get_product_by_id(product_id: int):
+    try:
+        payload = {"product_id": product_id}
+        result = await broker.rpc_request("buisness.product.get_by_id", payload)
+        if not result.get("success"):
+            raise HTTPException(status_code=404, detail=result.get("message"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/products/{buisness_id}")
+async def create_product(buisness_id: int, product: ProductCreate = Body(...)):
+    try:
+        payload = product.dict()
+        payload["buisness_id"] = buisness_id
+        result = await broker.rpc_request("buisness.product.create", payload)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        data = result.get("data", {})
+        notify_realtime("created", "product", data, buisness_id)
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.patch("/products/{product_id}")
+async def update_product(product_id: int, data: dict = Body(...)):
+    try:
+        payload = data
+        payload["product_id"] = product_id
+        result = await broker.rpc_request("buisness.product.update", payload)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.delete("/products/{product_id}")
+async def delete_product(product_id: int):
+    try:
+        payload = {"product_id": product_id}
+        result = await broker.rpc_request("buisness.product.delete", payload)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        return result
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# ========== CATEGORIES ==========
+
+@app.get("/categories")
+async def get_categories():
+    try:
+        payload = {}
+        result = await broker.rpc_request("buisness.category.get_all", payload)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.post("/categories")
+async def create_category(category: CategoryCreate = Body(...)):
+    try:
+        payload = category.dict()
+        result = await broker.rpc_request("buisness.category.create", payload)
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+        data = result.get("data", {})
+        notify_realtime("created", "category", data, 0)
+        return result
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 

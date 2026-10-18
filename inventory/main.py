@@ -85,12 +85,15 @@ async def sales_summary(business_id: int = Query(...)):
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+    
+
+
 
 
 @app.patch("/products/{product_id}/stock")
-async def update_stock(product_id: int, quantity: int = Query(...)):
+async def update_stock(product_id: int, data: dict = Body(...)):
     try:
-        payload = {"product_id": product_id, "quantity": quantity}
+        payload = {"product_id": product_id, "quantity": data.get("quantity", 0)}
         result = await broker.rpc_request("inventory.product.update_stock", payload)
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("message"))

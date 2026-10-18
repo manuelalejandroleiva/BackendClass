@@ -276,20 +276,18 @@ async def handle_update_stock(payload):
 
 @message_pattern("inventory.product.update")
 async def handle_update_product(payload):
+    if isinstance(payload, str):
+        payload = json.loads(payload)
+    product_id = payload.get("product_id")
+    if not product_id:
+        return {"success": False, "message": "product_id requerido"}
     async with AsyncSession(engine) as db:
         try:
-            if isinstance(payload, str):
-                payload = json.loads(payload)
-                
-            product_id = payload.get("product_id")
-            if not product_id:
-                return {"success": False, "message": "product_id requerido"}
-
             product = await get_product_by_id(db, product_id)
             if not product:
                 return {"success": False, "message": "Producto no encontrado"}
 
-            update_data = ProductUpdate(**payload)
+            update_data = ProductUpdate(**{k: v for k, v in payload.items() if k != "product_id"})
             update_dict = update_data.dict(exclude_unset=True)
 
             for key, value in update_dict.items():

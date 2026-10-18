@@ -38,7 +38,7 @@ async def shutdown():
 
 
 
-@app.post("/auth/login")
+@app.post("/login")
 async def login_user(credentials: LoginRequest):
     try:
         payload = credentials.dict()

@@ -6,6 +6,7 @@ from .connection.database import engine
 from .models.models import Property, Tenant, Payment, TenantStatus, PayerStatus, PaymentMethod
 from common.rabbitmq import message_pattern
 from datetime import datetime
+from sqlalchemy import select as sel_query
 
 
 # ===================== PROPERTY HANDLERS =====================
@@ -391,9 +392,6 @@ async def handle_get_all_payments(payload):
     async with AsyncSession(engine) as db:
         try:
             tenant_id = payload.get("tenant_id")
-            month = payload.get("month")
-            year = payload.get("year")
-
             query = select(Payment)
             if tenant_id:
                 query = query.where(Payment.tenant_id == int(tenant_id))
@@ -578,7 +576,7 @@ async def handle_auto_classify(payload):
 
 async def _update_payer_status(db: AsyncSession, tenant: Tenant):
     """Auto-classify tenant based on payment history: good = paid last 3 months, bad = missed 2+ of last 3"""
-    from sqlalchemy import select as sel_query
+    
 
     now = datetime.utcnow()
     current_year = now.year
